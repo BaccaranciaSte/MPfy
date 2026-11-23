@@ -1,0 +1,9 @@
+> GET /api/library
+> as: sara
+> if-none-match: (etag of 010)
+< 304
+< cache-control: no-cache
+< etag: W/"965f7fa305b34d115bae9d09edb32200.*"
+< vary: Accept-Encoding
+
+

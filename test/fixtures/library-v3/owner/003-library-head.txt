@@ -1,0 +1,9 @@
+> HEAD /api/library
+> as: local
+< 200
+< cache-control: no-cache
+< content-type: application/json; charset=utf-8
+< etag: W/"owner.*"
+< vary: Accept-Encoding
+
+

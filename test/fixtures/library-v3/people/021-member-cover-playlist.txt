@@ -1,0 +1,8 @@
+> PUT /api/cover-for/playlist/4444444444444444?size=small
+> as: sara
+> body: (1500 bytes, sha256 8b88e56b0155d655f780a99b)
+< 200
+< cache-control: no-store
+< content-type: application/json; charset=utf-8
+
+{"covers":{"track":{},"album":{},"playlist":{"4444444444444444":{"small":"8b88e56b0155d655f780a99b","large":null}}}}

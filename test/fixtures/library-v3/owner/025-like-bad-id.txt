@@ -1,0 +1,7 @@
+> PUT /api/likes/F0F0F0F0F0F0F0F0F0F0F0F0
+> as: local
+< 400
+< cache-control: no-store
+< content-type: application/json; charset=utf-8
+
+{"error":"Identificativo del brano non valido"}

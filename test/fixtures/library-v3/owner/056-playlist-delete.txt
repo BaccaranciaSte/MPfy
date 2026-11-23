@@ -1,0 +1,7 @@
+> DELETE /api/playlists/2222222222222222
+> as: local
+< 200
+< cache-control: no-store
+< content-type: application/json; charset=utf-8
+
+{"ok":true}

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#141414">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="MPfy, il tuo lettore musicale personale">
+<title>MPfy</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/mpfy-32.png">
+<link rel="icon" type="image/png" sizes="64x64" href="/icons/mpfy-64.png">
+<link rel="apple-touch-icon" href="/icons/mpfy-192.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="stylesheet" href="/styles.css">
+<script type="module" src="/app.js"></script>
+</head>
+<body>
+<div id="app" class="app">
+  <div id="banner" class="banner" role="status" hidden></div>
+  <aside id="sidebar" class="sidebar"></aside>
+  <main id="main" class="main" tabindex="-1"></main>
+  <div id="bottom" class="bottom-stack">
+    <div id="mini" class="mini-slot"></div>
+    <nav id="nav" class="nav"></nav>
+  </div>
+  <footer id="playerbar" class="player-bar"></footer>
+</div>
+<div id="layers" class="layers"></div>
+<div id="toasts" class="toasts" role="status" aria-live="polite"></div>
+<div id="dropzone" class="dropzone" hidden>
+  <div class="dropzone-box">
+    <svg width="48" height="48" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M7 18H6.5a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 17.6 8.1 4.5 4.5 0 0 1 17.5 18H17"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 12.5V21M8.8 15.6 12 12.4l3.2 3.2"/></svg>
+    <p>Rilascia i file per caricarli</p>
+  </div>
+</div>
+<noscript>MPfy ha bisogno di JavaScript.</noscript>
+</body>
+</html>

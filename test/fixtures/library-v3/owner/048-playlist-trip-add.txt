@@ -1,0 +1,8 @@
+> POST /api/playlists/1111111111111111/tracks
+> as: local
+> body: {"trackIds":["f012e680d3cd79dedf26add6","1cfa9fe526cb9450185d88df","f0f0f0f0f0f0f0f0f0f0f0f0"]}
+< 200
+< cache-control: no-store
+< content-type: application/json; charset=utf-8
+
+{"playlist":{"id":"1111111111111111","name":"Viaggio lungo","description":"","trackIds":["f012e680d3cd79dedf26add6","1cfa9fe526cb9450185d88df","f0f0f0f0f0f0f0f0f0f0f0f0"],"createdAt":"@1898","updatedAt":"@1917"}}

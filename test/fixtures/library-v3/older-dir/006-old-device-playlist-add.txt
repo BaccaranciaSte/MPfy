@@ -1,0 +1,8 @@
+> POST /api/playlists/5555555555555555/tracks
+> as: legacy (no profile headers)
+> body: {"trackIds":["e1e1e1e1e1e1e1e1e1e1e1e1"]}
+< 200
+< cache-control: no-store
+< content-type: application/json; charset=utf-8
+
+{"playlist":{"id":"5555555555555555","name":"In auto","description":"Le solite","trackIds":["2b639f985d31ac3156bdef63","f0f0f0f0f0f0f0f0f0f0f0f0","2b639f985d31ac3156bdef63","e1e1e1e1e1e1e1e1e1e1e1e1"],"createdAt":"@-604800","updatedAt":"@7"}}

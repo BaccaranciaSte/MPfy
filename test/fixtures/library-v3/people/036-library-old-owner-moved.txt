@@ -1,0 +1,9 @@
+> GET /api/library
+> as: bacca
+< 200
+< cache-control: no-cache
+< content-type: application/json; charset=utf-8
+< etag: W/"d478a190f197e2305143eea4379b7a41.*"
+< vary: Accept-Encoding
+
+{"version":"<version>","userVersion":"<userVersion>","tracks":[{"id":"29c053b382f0696d7894f228","title":"Sabbia","artist":"Dune","album":"Costa","albumArtist":"Dune","trackNo":null,"discNo":null,"year":null,"duration":1,"format":"wav","mime":"audio/wav","size":16100,"bitrate":128000,"lossless":true,"addedAt":"@2","coverId":null,"fileHash":"29c053b382f0696d7894f228","codec":"wav","sampleRate":8000,"bitDepth":16,"fakeLossless":null,"equivKbps":null,"cutoffHz":null,"score":1016080,"fp":null,"qualities":{"low":false,"normal":false,"high":false},"mine":false,"others":true}],"playlists":[],"likes":[],"recents":[],"covers":{"track":{},"album":{},"playlist":{}},"you":{"profileId":"d478a190f197e2305143eea4379b7a41","role":"member"},"source":{"name":"Fonte di prova","named":false,"details":true,"social":3}}

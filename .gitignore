@@ -1,0 +1,18 @@
+node_modules/
+.logs/
+data/
+*.log
+# client-node pairing state and any key material: never in git
+client-node/state.json
+**/keys.json
+**/clients.json
+# Android build outputs and local config
+android/**/build/
+android/.gradle/
+android/local.properties
+android/**/*.jks
+android/**/*.keystore
+android/app/src/main/assets/*.bundle
+.idea/
+*.iml
+android/app/src/main/jniLibs/

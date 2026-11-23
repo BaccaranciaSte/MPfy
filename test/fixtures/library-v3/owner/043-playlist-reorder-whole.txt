@@ -1,0 +1,8 @@
+> PATCH /api/playlists/0123456789abcdef
+> as: local
+> body: {"trackIds":["136a75f36a9c9493fc4187b8","f012e680d3cd79dedf26add6","c73a7aa55112aa2cace4759d","1cfa9fe526cb9450185d88df","e1e1e1e1e1e1e1e1e1e1e1e1"]}
+< 200
+< cache-control: no-store
+< content-type: application/json; charset=utf-8
+
+{"playlist":{"id":"0123456789abcdef","name":"La mia playlist n. 1","description":"","trackIds":["136a75f36a9c9493fc4187b8","f012e680d3cd79dedf26add6","c73a7aa55112aa2cace4759d","1cfa9fe526cb9450185d88df","e1e1e1e1e1e1e1e1e1e1e1e1"],"createdAt":"@1897","updatedAt":"@1912"}}

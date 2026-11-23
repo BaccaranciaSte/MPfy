@@ -1,0 +1,4 @@
+# Kotlin Gradle plugin session data
+.kotlin/
+# What release.sh builds: the APK and latest.json, uploaded by hand
+release/

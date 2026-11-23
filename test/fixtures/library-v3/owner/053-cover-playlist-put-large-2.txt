@@ -1,0 +1,8 @@
+> PUT /api/cover-for/playlist/0123456789abcdef?size=large
+> as: local
+> body: (4000 bytes, sha256 7068f103019f33d8bb19cddf)
+< 200
+< cache-control: no-store
+< content-type: application/json; charset=utf-8
+
+{"covers":{"track":{"f0f0f0f0f0f0f0f0f0f0f0f0":{"small":"62deb387e8e2356f3fdd4841","large":null}},"album":{"65635b422fc84691":{"small":"cf2f3f907b486202181d81f4","large":null}},"playlist":{"2222222222222222":{"small":"1bc3440f109cd78413a7bac5","large":null},"1111111111111111":{"small":"041bb61b8d0044023c543f37","large":"62b8dc9f1c604ec5385dc4ca"},"0123456789abcdef":{"small":null,"large":"7068f103019f33d8bb19cddf"}}}}

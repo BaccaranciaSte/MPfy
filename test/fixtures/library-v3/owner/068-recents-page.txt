@@ -1,0 +1,7 @@
+> GET /api/recents?limit=3
+> as: local
+< 200
+< cache-control: no-store
+< content-type: application/json; charset=utf-8
+
+{"recents":[{"trackId":"f012e680d3cd79dedf26add6","at":"@1933","context":{"type":"search"}},{"trackId":"1cfa9fe526cb9450185d88df","at":"@1932","context":{"type":"library"}},{"trackId":"f012e680d3cd79dedf26add6","at":"@1929","context":{"type":"library"}}],"more":true}

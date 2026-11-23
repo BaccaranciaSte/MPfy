@@ -1,0 +1,7 @@
+> PUT /api/likes/2b639f985d31ac3156bdef63
+> as: legacy
+< 200
+< cache-control: no-store
+< content-type: application/json; charset=utf-8
+
+{"likes":[{"id":"e1e1e1e1e1e1e1e1e1e1e1e1","at":"@5"},{"id":"f0f0f0f0f0f0f0f0f0f0f0f0","at":"@-345600"},{"id":"2b639f985d31ac3156bdef63","at":"@-432000"}]}

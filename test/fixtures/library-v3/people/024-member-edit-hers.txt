@@ -1,0 +1,8 @@
+> PATCH /api/tracks/f41a7728081cdf84e269dde2
+> as: sara
+> body: {"artist":"Dune e Mare"}
+< 200
+< cache-control: no-store
+< content-type: application/json; charset=utf-8
+
+{"track":{"id":"f41a7728081cdf84e269dde2","title":"Conchiglia","artist":"Dune e Mare","album":"Costa","albumArtist":"Dune e Mare","trackNo":null,"discNo":null,"year":null,"duration":1,"format":"wav","mime":"audio/wav","size":16104,"bitrate":128000,"lossless":true,"addedAt":"@16","coverId":null,"fileHash":"f41a7728081cdf84e269dde2","codec":"wav","sampleRate":8000,"bitDepth":16,"fakeLossless":null,"equivKbps":null,"cutoffHz":null,"score":1016080,"fp":null,"qualities":{"low":false,"normal":false,"high":false},"mine":true,"others":false}}

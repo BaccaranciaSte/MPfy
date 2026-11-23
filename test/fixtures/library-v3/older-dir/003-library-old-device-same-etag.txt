@@ -1,0 +1,9 @@
+> GET /api/library
+> as: legacy (no profile headers)
+> if-none-match: (etag of 002)
+< 304
+< cache-control: no-cache
+< etag: W/"owner.*"
+< vary: Accept-Encoding
+
+

@@ -1,0 +1,9 @@
+> GET /api/library
+> as: local
+> if-none-match: (etag of 004)
+< 304
+< cache-control: no-cache
+< etag: W/"owner.*"
+< vary: Accept-Encoding
+
+

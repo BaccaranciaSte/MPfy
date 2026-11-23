@@ -1,0 +1,8 @@
+> PATCH /api/playlists/3333333333333333
+> as: sara
+> body: {"name":"Mia"}
+< 404
+< cache-control: no-store
+< content-type: application/json; charset=utf-8
+
+{"error":"Playlist non trovata"}

@@ -1,0 +1,7 @@
+> DELETE /api/likes/c73a7aa55112aa2cace4759d
+> as: local
+< 200
+< cache-control: no-store
+< content-type: application/json; charset=utf-8
+
+{"likes":[{"id":"1cfa9fe526cb9450185d88df","at":"@1890"},{"id":"f0f0f0f0f0f0f0f0f0f0f0f0","at":"@1889"},{"id":"136a75f36a9c9493fc4187b8","at":"@1887"}]}

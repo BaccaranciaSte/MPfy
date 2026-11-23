@@ -1,0 +1,8 @@
+> POST /api/playlists/0123456789abcdef/tracks
+> as: local
+> body: {"trackIds":[]}
+< 400
+< cache-control: no-store
+< content-type: application/json; charset=utf-8
+
+{"error":"Nessun brano da aggiungere"}

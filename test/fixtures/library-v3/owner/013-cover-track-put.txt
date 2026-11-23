@@ -1,0 +1,8 @@
+> PUT /api/cover-for/track/f012e680d3cd79dedf26add6?size=large
+> as: local
+> body: (3000 bytes, sha256 9331f811d7ed745bc2817612)
+< 200
+< cache-control: no-store
+< content-type: application/json; charset=utf-8
+
+{"covers":{"track":{"f012e680d3cd79dedf26add6":{"small":null,"large":"9331f811d7ed745bc2817612"}},"album":{},"playlist":{}}}

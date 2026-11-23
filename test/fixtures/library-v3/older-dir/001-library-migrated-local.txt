@@ -1,0 +1,9 @@
+> GET /api/library
+> as: local
+< 200
+< cache-control: no-cache
+< content-type: application/json; charset=utf-8
+< etag: W/"owner.*"
+< vary: Accept-Encoding
+
+{"version":"<version>","userVersion":"<userVersion>","tracks":[{"id":"2b639f985d31ac3156bdef63","title":"Scogli","artist":"Mare","album":"Costa","albumArtist":"Mare","trackNo":null,"discNo":null,"year":null,"duration":1,"format":"wav","mime":"audio/wav","size":16100,"bitrate":128000,"lossless":true,"addedAt":"@-691200","coverId":null,"fileHash":"2b639f985d31ac3156bdef63","codec":"wav","sampleRate":8000,"bitDepth":16,"fakeLossless":null,"equivKbps":null,"cutoffHz":null,"score":1016080,"fp":null,"qualities":{"low":false,"normal":false,"high":false},"mine":true,"others":false}],"playlists":[{"id":"5555555555555555","name":"In auto","description":"Le solite","trackIds":["2b639f985d31ac3156bdef63","f0f0f0f0f0f0f0f0f0f0f0f0","2b639f985d31ac3156bdef63"],"createdAt":"@-604800","updatedAt":"@-518400"},{"id":"0123456789abcdef","name":"Vuota","description":"","trackIds":[],"createdAt":"@-432000","updatedAt":"@-432000","color":"blu"}],"likes":[{"id":"f0f0f0f0f0f0f0f0f0f0f0f0","at":"@-345600"},{"id":"2b639f985d31ac3156bdef63","at":"@-432000"}],"recents":[{"trackId":"2b639f985d31ac3156bdef63","at":"@-172800","context":{"type":"playlist","id":"5555555555555555"}},{"trackId":"e1e1e1e1e1e1e1e1e1e1e1e1","at":"@-259200","context":{"type":"library"}}],"covers":{"track":{"2b639f985d31ac3156bdef63":{"small":null,"large":"77ad730a488ee8d388e47db7"}},"album":{"3e862461c1d1477a":{"small":"0745ed0a2f52c0f1e4f1e886","large":null}},"playlist":{"5555555555555555":{"small":"a1756ed131dedadee07351ba","large":"a1756ed131dedadee07351ba"}}},"you":{"profileId":null,"role":"owner"},"source":{"name":"Fonte di prova","named":false,"details":true,"social":3}}

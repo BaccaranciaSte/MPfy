@@ -1,0 +1,8 @@
+> POST /api/playlists
+> as: sara
+> body: {"id":"3333333333333333"}
+< 409
+< cache-control: no-store
+< content-type: application/json; charset=utf-8
+
+{"error":"Playlist gia' presente","code":"playlist_exists"}

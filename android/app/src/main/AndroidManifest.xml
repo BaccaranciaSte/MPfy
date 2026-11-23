@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+  <!-- ExoPlayer setWakeMode(C.WAKE_MODE_NETWORK) -->
+  <uses-permission android:name="android.permission.WAKE_LOCK" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+  <!-- Download and upload notifications (Android 13+ grants it at runtime; media ones are exempt). -->
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <!-- In-app updates: the APK of a newer release goes to PackageInstaller (the system asks). -->
+  <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+  <!-- The phone's own music (Locale): audio only, never photos, never all files. Below Android 13
+       the storage permission is the one that reads audio. -->
+  <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+  <uses-permission
+      android:name="android.permission.READ_EXTERNAL_STORAGE"
+      android:maxSdkVersion="32" />
+  <!-- The QR scanner (ScanActivity), asked the first time it opens. A phone without a camera
+       still installs the app: the codes can be typed. -->
+  <uses-permission android:name="android.permission.CAMERA" />
+  <uses-feature
+      android:name="android.hardware.camera"
+      android:required="false" />
+
+  <!-- requestLegacyExternalStorage: Android 10 only (ignored from 11), an .lrc beside a song is read by its path. -->
+  <application
+      android:name=".MPfyApp"
+      android:label="@string/app_name"
+      android:icon="@mipmap/ic_launcher"
+      android:appCategory="audio"
+      android:allowBackup="false"
+      android:fullBackupContent="false"
+      android:dataExtractionRules="@xml/data_extraction_rules"
+      android:networkSecurityConfig="@xml/network_security_config"
+      android:requestLegacyExternalStorage="true"
+      android:supportsRtl="false"
+      android:theme="@style/Theme.MPfy">
+
+    <!-- The WebView talks to no one but the core (no analytics, no third party): no usage
+         metrics for Google and no Safe Browsing lookups. MainActivity also turns Safe Browsing
+         off in the WebView's settings. -->
+    <meta-data
+        android:name="android.webkit.WebView.MetricsOptOut"
+        android:value="true" />
+    <meta-data
+        android:name="android.webkit.WebView.EnableSafeBrowsing"
+        android:value="false" />
+
+    <!-- Android Auto: a media app, its library browsed through PlaybackService. -->
+    <meta-data
+        android:name="com.google.android.gms.car.application"
+        android:resource="@xml/automotive_app_desc" />
+    <meta-data
+        android:name="com.google.android.gms.car.notification.SmallIcon"
+        android:resource="@drawable/ic_stat_mpfy" />
+
+    <activity
+        android:name=".MainActivity"
+        android:exported="true"
+        android:launchMode="singleTask"
+        android:windowSoftInputMode="adjustResize"
+        android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density|fontScale">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
+      </intent-filter>
+      <!-- The links of the app's QR codes (CodeLinks), from the phone's own camera app or a tap:
+           mpfy://collega?... and mpfy://fonte?... open the same flow as the extra "code". -->
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data android:scheme="mpfy" />
+        <data android:host="collega" />
+        <data android:host="fonte" />
+      </intent-filter>
+    </activity>
+
+    <!-- The QR scanner: opened by the app only. -->
+    <activity
+        android:name=".ScanActivity"
+        android:exported="false"
+        android:theme="@style/Theme.MPfy" />
+
+    <service
+        android:name=".PlaybackService"
+        android:foregroundServiceType="mediaPlayback"
+        android:exported="true">
+      <intent-filter>
+        <action android:name="androidx.media3.session.MediaLibraryService" />
+        <action android:name="android.media.browse.MediaBrowserService" />
+        <action android:name="androidx.media3.session.MediaSessionService" />
+      </intent-filter>
+    </service>
+
+    <!-- Covers for the notification, the lock screen, Bluetooth and the car, which read them with
+         their own uid: read only, immutable covers named by unguessable ids, never a proxy. -->
+    <provider
+        android:name=".ArtProvider"
+        android:authorities="com.baccarancia.mpfy.art"
+        android:exported="true" />
+
+    <!-- PackageInstaller's answers to an update: only our own PendingIntent reaches it. -->
+    <receiver
+        android:name=".UpdateReceiver"
+        android:exported="false" />
+
+    <service
+        android:name=".MPfyDownloadService"
+        android:foregroundServiceType="dataSync"
+        android:exported="false" />
+
+    <!-- Uploads with the screen off: the process stays while the page's upload queue has work. -->
+    <service
+        android:name=".UploadService"
+        android:foregroundServiceType="dataSync"
+        android:exported="false" />
+
+    <!-- A media button (Bluetooth, steering wheel) with the app not running resumes the last
+         queue (PlaybackService.onPlaybackResumption). -->
+    <receiver
+        android:name="androidx.media3.session.MediaButtonReceiver"
+        android:exported="true">
+      <intent-filter>
+        <action android:name="android.intent.action.MEDIA_BUTTON" />
+      </intent-filter>
+    </receiver>
+  </application>
+</manifest>

@@ -1,0 +1,8 @@
+> POST /api/played
+> as: local
+> body: {"trackId":"f012e680d3cd79dedf26add6","context":{"type":"radio"}}
+< 400
+< cache-control: no-store
+< content-type: application/json; charset=utf-8
+
+{"error":"Contesto non valido"}

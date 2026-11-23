@@ -1,0 +1,7 @@
+# The client's state holds clientSeed, the private key seed of this device: never
+# in git. Nor any file next to it: the temporary copy of an atomic write
+# (state.json.tmp, left behind by a failed write), an unreadable state set aside
+# (state.json.corrupt-<time>), the lock of the running client (state.json.lock)
+# and the profile photo (state.json.photo-<hash>.jpg).
+state.json
+state.json.*

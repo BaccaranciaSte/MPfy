@@ -1,0 +1,8 @@
+> POST /api/played
+> as: sara
+> body: {"trackId":"f41a7728081cdf84e269dde2","context":{"type":"playlist","id":"4444444444444444"}}
+< 200
+< cache-control: no-store
+< content-type: application/json; charset=utf-8
+
+{"ok":true}

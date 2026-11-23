@@ -1,0 +1,8 @@
+> POST /api/played
+> as: local
+> body: {"trackId":"136a75f36a9c9493fc4187b8","context":{"type":"playlist","id":"0123456789abcdef"}}
+< 200
+< cache-control: no-store
+< content-type: application/json; charset=utf-8
+
+{"ok":true}

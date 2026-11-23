@@ -1,0 +1,8 @@
+> PATCH /api/tracks/f012e680d3cd79dedf26add6
+> as: local
+> body: {"title":"Onda lunghissima","album":"Acque alte"}
+< 200
+< cache-control: no-store
+< content-type: application/json; charset=utf-8
+
+{"track":{"id":"f012e680d3cd79dedf26add6","title":"Onda lunghissima","artist":"Riva Nord","album":"Acque alte","albumArtist":"Riva Nord","trackNo":null,"discNo":null,"year":null,"duration":2,"format":"wav","mime":"audio/wav","size":32114,"bitrate":128000,"lossless":true,"addedAt":"@6","coverId":null,"fileHash":"f012e680d3cd79dedf26add6","codec":"wav","sampleRate":8000,"bitDepth":16,"fakeLossless":null,"equivKbps":null,"cutoffHz":null,"score":1016080,"fp":{"d":2,"b":32,"s":"TtwUSP6oSdj2su1MrgP1IZ9yYal7jUSXMAtJo+FVPujE3YYd9ICczQf9StI1ibBAwYjaTPI2hhoURTZhIqBkZyJgovi4z5Zc5aOXBLhacTDvJu6/H4iZ1zUymu8v6pOIfM88LPL2eRZkaf7kqj1IONHYPrkk6UsCdAT3gxiCqux8bACEdHHQzn/tLx+eGXVeX9AIVvb4Nh/XNj2iQ7WnOIWLUkRx5EUbP2Y6esg1H5JrysPtfnPhDSdgUjHsxjf10byXJZVeC27tIntvP5hEjloDhHkl3E2IexXFo9K4/qJm89r/Spm4kGJajvgOROp5YPlF0giKP6wGiELdj3Dmtw=="},"qualities":{"low":false,"normal":true,"high":false},"mine":true,"others":false}}

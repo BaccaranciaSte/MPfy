@@ -1,0 +1,8 @@
+> PUT /api/cover-for/album/65635b422fc84691?size=small
+> as: local
+> body: (2000 bytes, sha256 cf2f3f907b486202181d81f4)
+< 200
+< cache-control: no-store
+< content-type: application/json; charset=utf-8
+
+{"covers":{"track":{"f012e680d3cd79dedf26add6":{"small":null,"large":"9331f811d7ed745bc2817612"}},"album":{"65635b422fc84691":{"small":"cf2f3f907b486202181d81f4","large":null}},"playlist":{}}}

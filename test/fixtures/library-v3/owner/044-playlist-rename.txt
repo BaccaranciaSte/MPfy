@@ -1,0 +1,8 @@
+> PATCH /api/playlists/1111111111111111
+> as: local
+> body: {"name":"Viaggio lungo"}
+< 200
+< cache-control: no-store
+< content-type: application/json; charset=utf-8
+
+{"playlist":{"id":"1111111111111111","name":"Viaggio lungo","description":"In macchina","trackIds":[],"createdAt":"@1898","updatedAt":"@1913"}}

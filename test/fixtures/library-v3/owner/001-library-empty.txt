@@ -1,0 +1,9 @@
+> GET /api/library
+> as: local
+< 200
+< cache-control: no-cache
+< content-type: application/json; charset=utf-8
+< etag: W/"owner.*"
+< vary: Accept-Encoding
+
+{"version":"<version>","userVersion":"<userVersion>","tracks":[],"playlists":[],"likes":[],"recents":[],"covers":{"track":{},"album":{},"playlist":{}},"you":{"profileId":null,"role":"owner"},"source":{"name":"Fonte di prova","named":false,"details":true,"social":3}}

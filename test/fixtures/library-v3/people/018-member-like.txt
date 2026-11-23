@@ -1,0 +1,7 @@
+> PUT /api/likes/f41a7728081cdf84e269dde2
+> as: sara
+< 200
+< cache-control: no-store
+< content-type: application/json; charset=utf-8
+
+{"likes":[{"id":"f41a7728081cdf84e269dde2","at":"@23"}]}

@@ -1,0 +1,8 @@
+> PATCH /api/playlists/1111111111111111
+> as: local
+> body: {"name":"   "}
+< 400
+< cache-control: no-store
+< content-type: application/json; charset=utf-8
+
+{"error":"Il nome non puo' essere vuoto"}

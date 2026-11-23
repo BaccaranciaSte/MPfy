@@ -1,0 +1,7 @@
+> PUT /api/likes/f41a7728081cdf84e269dde2
+> as: bacca
+< 200
+< cache-control: no-store
+< content-type: application/json; charset=utf-8
+
+{"likes":[{"id":"f41a7728081cdf84e269dde2","at":"@30"},{"id":"29c053b382f0696d7894f228","at":"@5"}]}

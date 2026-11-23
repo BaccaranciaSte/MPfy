@@ -1,0 +1,8 @@
+> POST /api/playlists/3333333333333333/tracks
+> as: local
+> body: {"trackIds":["29c053b382f0696d7894f228","f0f0f0f0f0f0f0f0f0f0f0f0"]}
+< 200
+< cache-control: no-store
+< content-type: application/json; charset=utf-8
+
+{"playlist":{"id":"3333333333333333","name":"Spiaggia","description":"","trackIds":["29c053b382f0696d7894f228","f0f0f0f0f0f0f0f0f0f0f0f0"],"createdAt":"@3","updatedAt":"@4"}}

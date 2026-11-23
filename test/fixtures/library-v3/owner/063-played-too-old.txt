@@ -1,0 +1,8 @@
+> POST /api/played
+> as: local
+> body: {"trackId":"1cfa9fe526cb9450185d88df","at":"@-3454068"}
+< 200
+< cache-control: no-store
+< content-type: application/json; charset=utf-8
+
+{"ok":true}

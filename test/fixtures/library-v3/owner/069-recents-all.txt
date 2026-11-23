@@ -1,0 +1,7 @@
+> GET /api/recents
+> as: local
+< 200
+< cache-control: no-store
+< content-type: application/json; charset=utf-8
+
+{"recents":[{"trackId":"f012e680d3cd79dedf26add6","at":"@1933","context":{"type":"search"}},{"trackId":"1cfa9fe526cb9450185d88df","at":"@1932","context":{"type":"library"}},{"trackId":"f012e680d3cd79dedf26add6","at":"@1929","context":{"type":"library"}},{"trackId":"136a75f36a9c9493fc4187b8","at":"@1928","context":{"type":"playlist","id":"0123456789abcdef"}},{"trackId":"f0f0f0f0f0f0f0f0f0f0f0f0","at":"@-5270","context":{"type":"liked"}},{"trackId":"c73a7aa55112aa2cace4759d","at":"@-8869","context":{"type":"album","id":"65635b422fc84691"}}],"more":false}

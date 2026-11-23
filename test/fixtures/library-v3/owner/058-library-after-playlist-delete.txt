@@ -1,0 +1,9 @@
+> GET /api/library?have=(version of 055)
+> as: local
+< 200
+< cache-control: no-cache
+< content-type: application/json; charset=utf-8
+< etag: W/"owner.*"
+< vary: Accept-Encoding
+
+{"version":"<version>","userVersion":"<userVersion>","tracks":null,"playlists":[{"id":"0123456789abcdef","name":"La mia playlist n. 1","description":"","trackIds":["136a75f36a9c9493fc4187b8","f012e680d3cd79dedf26add6","c73a7aa55112aa2cace4759d","1cfa9fe526cb9450185d88df","e1e1e1e1e1e1e1e1e1e1e1e1"],"createdAt":"@1897","updatedAt":"@1912"},{"id":"1111111111111111","name":"Viaggio lungo","description":"","trackIds":["f012e680d3cd79dedf26add6","1cfa9fe526cb9450185d88df","f0f0f0f0f0f0f0f0f0f0f0f0"],"createdAt":"@1898","updatedAt":"@1917"}],"likes":[{"id":"1cfa9fe526cb9450185d88df","at":"@1890"},{"id":"f0f0f0f0f0f0f0f0f0f0f0f0","at":"@1889"},{"id":"136a75f36a9c9493fc4187b8","at":"@1887"}],"recents":[],"covers":{"playlist":{"1111111111111111":{"small":"041bb61b8d0044023c543f37","large":"62b8dc9f1c604ec5385dc4ca"}}},"you":{"profileId":null,"role":"owner"},"source":{"name":"Fonte di prova","named":false,"details":true,"social":3}}

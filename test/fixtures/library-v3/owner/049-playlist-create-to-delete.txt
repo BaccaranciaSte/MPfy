@@ -1,0 +1,8 @@
+> POST /api/playlists
+> as: local
+> body: {"id":"2222222222222222","name":"Da togliere"}
+< 200
+< cache-control: no-store
+< content-type: application/json; charset=utf-8
+
+{"playlist":{"id":"2222222222222222","name":"Da togliere","description":"","trackIds":[],"createdAt":"@1918","updatedAt":"@1918"}}

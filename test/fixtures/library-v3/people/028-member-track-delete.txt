@@ -1,0 +1,7 @@
+> DELETE /api/tracks/f41a7728081cdf84e269dde2
+> as: sara
+< 200
+< cache-control: no-store
+< content-type: application/json; charset=utf-8
+
+{"ok":true,"deleted":true}

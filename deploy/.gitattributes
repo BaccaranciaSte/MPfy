@@ -1,0 +1,2 @@
+# Shell scripts run on Android/Linux: never let a Windows checkout turn them into CRLF.
+*.sh text eol=lf
