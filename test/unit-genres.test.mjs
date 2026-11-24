@@ -32,6 +32,8 @@ test('each genre has its family: the table, then the words in order, else Altro'
     'Neo-Soul': 'rnb', Funk: 'rnb', 'Country Pop': 'folk', 'Musica popolare': 'folk', Cantautorale: 'folk',
     'Smooth Jazz': 'jazz', 'Delta Blues': 'jazz', Baroque: 'classica', Opera: 'classica', 'Latin Pop': 'latino', Dancehall: 'latino',
     Afrobeat: 'mondo', Celtic: 'mondo', Zzzxq: 'altro',
+    // As a real library tags them.
+    Films: 'colonne', Film: 'colonne', Games: 'colonne', Videogiochi: 'colonne', 'Film Scores': 'colonne', 'Colonne sonore': 'colonne', 'Movie Soundtrack': 'colonne',
   }
   for (const [g, m] of Object.entries(want)) assert.equal(genreOf(g).macro, m, g)
 })
