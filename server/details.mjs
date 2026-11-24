@@ -302,8 +302,9 @@ export function missingFields (t, values = null, hasCustomCover = () => false) {
 const MB_GENRES = 3
 // The version of the genres lookup: a track answered by an older one is asked again, once.
 // 2: the recording's, its album's and its artist's together; an artist found by name when the
-// recording is not (a romanized title of a song MusicBrainz has in its own script).
-export const GENRES_V = 2
+// recording is not (a romanized title of a song MusicBrainz has in its own script). 3: a name more
+// than one artist answers to gives nothing (it gave the first: a grime Spitz for the band).
+export const GENRES_V = 3
 const MAX_SONG_GENRES = 5
 
 /** The first artist a credit names ("A, B", "A & B", "A feat. B": A). */
@@ -1158,7 +1159,8 @@ export class Details {
   }
 
   // No recording: the first artist of the song by its name (the same name, its sort name or an
-  // alias, a score of 95 at least), and that artist's genres. Each name asked once.
+  // alias, a score of 95 at least), and that artist's genres; a name two artists answer to is no
+  // answer. Each name asked once.
   async _artistGenresByName (track, ctx) {
     const name = firstArtist(track.artist)
     if (name === null) return []
@@ -1169,8 +1171,8 @@ export class Details {
       const answer = await this._mb('/ws/2/artist?query=' + encodeURIComponent(q) + '&fmt=json&limit=5', ctx)
       const list = answer && Array.isArray(answer.artists) ? answer.artists : []
       const same = (x) => typeof x === 'string' && norm(x) === key
-      const hit = list.find((a) => a && typeof a.id === 'string' && !(typeof a.score === 'number' && a.score < 95) && (same(a.name) || same(a['sort-name']) || (Array.isArray(a.aliases) && a.aliases.some((x) => x && same(x.name)))))
-      id = hit ? hit.id : null
+      const hits = list.filter((a) => a && typeof a.id === 'string' && !(typeof a.score === 'number' && a.score < 95) && (same(a.name) || same(a['sort-name']) || (Array.isArray(a.aliases) && a.aliases.some((x) => x && same(x.name)))))
+      id = new Set(hits.map((a) => a.id)).size === 1 ? hits[0].id : null
       if (this._artistByName.size >= 5000) this._artistByName.clear()
       this._artistByName.set(key, id)
     }
