@@ -333,6 +333,8 @@ function makeCover(c1, c2, seed, S = 300) {
 // ---------------------------------------------------------------------------------------------
 // sample data: 8 artists, 12 albums, 60 tracks (made up names)
 
+// The genre tags of the first albums (genres.js): two families with genres in them, the rest none.
+const CATALOG_GENRES = [['J-Pop'], ['J-Pop', 'City Pop'], ['Synthwave'], ['Soundtrack;Musical'], ['Hip-Hop/Rap']];
 const CATALOG = [
   { artist: 'Lumen Marino', album: 'Fari nella nebbia', year: 2019, c: [[14, 48, 84], [30, 160, 170]], titles: ['Luce di posizione', 'Il guardiano del faro', 'Nebbia', 'Segnali lontani', 'Approdo'] },
   { artist: 'Lumen Marino', album: 'Città di sale', year: 2022, c: [[150, 64, 40], [240, 196, 140]], titles: ['Città di sale', 'Saline', 'Vento di terra', 'Ultimo traghetto', 'Mareggiata'] },
@@ -456,6 +458,7 @@ function buildCatalog() {
         artist: a.artist,
         album: a.album,
         albumArtist: a.artist,
+        ...(CATALOG_GENRES[ai] ? { genres: CATALOG_GENRES[ai] } : {}),
         trackNo: ti + 1,
         discNo: 1,
         year: a.year,

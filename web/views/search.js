@@ -1,6 +1,7 @@
 // Cerca: "Cosa vuoi ascoltare?". Live results grouped as "Risultato migliore", "Brani", "Artisti",
 // "Album", "Playlist"; matching is case and accent insensitive over title, artist and album.
-// With an empty field: "Sfoglia tutto", one colored card per artist.
+// With an empty field: "Sfoglia tutto", one colored card per family of genres (genre-index.js)
+// and then one per artist. A query finds the genres too ("Generi").
 // A change of the library draws again only the groups whose content changed, once the hands rest
 // (settle.js): a row of cards scrolled sideways stays where it is.
 
@@ -16,6 +17,7 @@ import { card, shelf, playCtxButton } from '../components/cards.js';
 import { trackRow, refreshAllMarks } from '../components/track-row.js';
 import { openTrackMenu } from '../components/menus.js';
 import { whenSettled, patchParts } from '../js/settle.js';
+import { genreFamilies, genreHref, searchGenres } from '../js/genre-index.js';
 
 /** Relevance of one text for the query (0 = no match). */
 function score(text, q, words) {
@@ -125,6 +127,16 @@ function bestCard(best, playTrack) {
   return el;
 }
 
+/** A family of genres as a colored card: its name, a mosaic of its albums. */
+function genreCard(f) {
+  return h(
+    'a',
+    { class: 'browse-card genre-card', href: genreHref(f.id), 'data-link': '', style: { '--c': css(nameColor(f.name)) } },
+    h('span', { class: 'browse-name' }, f.name),
+    coverEl(specs.playlist({ trackIds: f.trackIds }), { cls: 'browse-cover', size: 'large' })
+  );
+}
+
 function browseCard(ar) {
   const rgb = cachedColor(ar.coverId) || nameColor(ar.name);
   const el = h(
@@ -177,11 +189,19 @@ export function searchView(query) {
       }
       return [
         { key: 'browse-title', sig: '', build: () => h('h2', { class: 'section-title' }, 'Sfoglia tutto') },
+        ...genreParts(),
         { key: 'browse', sig: JSON.stringify(artists.map((ar) => [ar.id, ar.name, ar.coverId || null, specs.artist(ar)])), build: () => h('div', { class: 'browse-grid' }, artists.map(browseCard)) },
       ];
     }
     const qt = q.trim();
     const r = search(q);
+    const gs = searchGenres(norm(q).split(/\s+/).filter(Boolean), norm);
+    const genresPart = gs.length && {
+      key: 'genres',
+      sig: JSON.stringify(gs),
+      build: () => h('section', { class: 'search-genres' }, h('h2', { class: 'section-title' }, 'Generi'), h('div', { class: 'chips genre-chips' }, gs.map((g) => h('a', { class: 'chip', href: genreHref(g.id), 'data-link': '' }, g.name)))),
+    };
+    if (!r.best && genresPart) return [genresPart];
     if (!r.best) return [{ key: 'nothing', sig: qt, build: () => h('div', { class: 'empty' }, h('h2', {}, `Nessun risultato per "${qt}"`)) }];
     const ctx = { type: 'search', id: qt, name: `Ricerca: ${qt}` };
     live = { ctx, ids: r.tracks.map((t) => t.id) };
@@ -207,6 +227,7 @@ export function searchView(query) {
         },
       },
     ];
+    if (genresPart) out.push(genresPart);
     const shelfPart = (title, items) => items.length && { key: `shelf:${title}`, sig: JSON.stringify(items), build: () => shelf(title, items.map((o) => card(o))) };
     out.push(
       shelfPart('Artisti', r.artists.slice(0, 20).map((ar) => ({ href: `/artist/${ar.id}`, title: ar.name, sub: 'Artista', cover: specs.artist(ar), round: true, ctx: { type: 'artist', id: ar.id } }))),
@@ -228,6 +249,16 @@ export function searchView(query) {
       });
     }
     return out.filter(Boolean);
+  }
+
+  /** The families of genres as cards, before the artists; nothing while no song has a genre. */
+  function genreParts() {
+    const fams = genreFamilies();
+    if (!fams.length) return [];
+    return [
+      { key: 'genre-grid', sig: JSON.stringify(fams.map((f) => [f.id, f.count, specs.playlist({ trackIds: f.trackIds })])), build: () => h('div', { class: 'browse-grid genre-grid' }, fams.map(genreCard)) },
+      { key: 'artists-title', sig: '', build: () => h('h2', { class: 'section-title' }, 'Artisti') },
+    ];
   }
 
   function render() {

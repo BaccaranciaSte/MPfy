@@ -31,8 +31,9 @@ import { toast } from '../components/toast.js';
 import { openTrackMenu, openPlaylistMenu, openCollectionMenu, openAddTracks } from '../components/menus.js';
 import { profile } from '../js/profile.js';
 import { avatar, avatarSig } from '../components/avatar.js';
+import { genrePage, genreHref } from '../js/genre-index.js';
 
-const KIND_LABEL = { playlist: 'Playlist', album: 'Album', artist: 'Artista', liked: 'Playlist' };
+const KIND_LABEL = { playlist: 'Playlist', album: 'Album', artist: 'Artista', liked: 'Playlist', genre: 'Genere' };
 
 /** Everything a page needs, resolved from the store; null when the item does not exist. */
 function model(kind, id) {
@@ -54,6 +55,11 @@ function model(kind, id) {
     const ar = d.artists.get(id);
     if (!ar) return null;
     return { title: ar.name, cover: specs.artist(ar), entries: entriesOf(artistTrackIds(id)), ar, round: true };
+  }
+  if (kind === 'genre') {
+    const g = genrePage(id);
+    if (!g) return null;
+    return { title: g.title, cover: specs.playlist({ trackIds: g.songs.slice(0, 200).map((s) => s.id) }), entries: g.songs.map((t, index) => ({ t, index })), genre: g };
   }
   return { title: LIKED_NAME, cover: specs.liked(), entries: entriesOf(d.likedIds) };
 }
@@ -128,6 +134,11 @@ export function detailView(kind, id) {
       return [artistLink, sep(), h('span', {}, `Album${al.year ? ` ${al.year}` : ''}`), sep(), h('span', {}, count)];
     }
     if (kind === 'artist') return [h('span', {}, count)];
+    if (kind === 'genre') {
+      // A genre's page: its family first, a link back to all of it.
+      const g = m.genre;
+      return g.genre ? [h('a', { class: 'meta-owner', href: genreHref(g.family.id), 'data-link': '' }, g.family.name), sep(), h('span', {}, count)] : [h('span', {}, count)];
+    }
     // You: your picture (18 px) next to "Tu"; the logo on a core without profiles.
     return [h('span', { class: 'meta-owner' }, profile.data ? avatar(18, { cls: 'owner-av' }) : logoEl(18), 'Tu'), sep(), h('span', {}, count)];
   }
@@ -135,7 +146,7 @@ export function detailView(kind, id) {
   function actions(m) {
     const left = h('div', { class: 'actions-left' });
     dlBtn = null;
-    if (downloads.available && m.entries.length) {
+    if (downloads.available && m.entries.length && kind !== 'genre') {
       dlBtn = h('button', { type: 'button', class: 'icon-btn dl-toggle' }, icon('download', 28, 'i-off'), icon('downloaded', 28, 'i-on'));
       // Taps in a quick run make one change, to the state of the last one (downloads.js).
       dlBtn.addEventListener('click', () => downloads.toggleContext(ctx));
@@ -150,7 +161,7 @@ export function detailView(kind, id) {
           openCollectionMenu({
             ctx,
             title: c.title,
-            sub: kind === 'album' ? c.al.artist : kind === 'artist' ? 'Artista' : nBrani(c.entries.length),
+            sub: kind === 'album' ? c.al.artist : kind === 'artist' ? 'Artista' : kind === 'genre' ? 'Genere' : nBrani(c.entries.length),
             cover: c.cover,
             artistId: kind === 'album' ? c.al.artistId : null,
           });
@@ -321,6 +332,18 @@ export function detailView(kind, id) {
       if (albums.length) out.push({ key: 'shelf:Album', sig: JSON.stringify(albums), build: () => shelf('Album', albums.map((o) => card(o))) });
       out.push({ key: 'all-title', sig: '', build: () => h('h2', { class: 'section-title' }, 'Tutti i brani') });
       out.push(listPart('all', m, m.entries));
+    } else if (kind === 'genre') {
+      // The genres of the family, most songs first: "Tutto" is the whole family.
+      const g = m.genre;
+      out.push({
+        key: 'genres',
+        sig: JSON.stringify([g.id, g.family, g.genres]),
+        build: () => {
+          const chip = (label, gid) => h('a', { class: `chip${gid === g.id ? ' on' : ''}`, href: genreHref(gid), 'data-link': '', 'aria-current': gid === g.id ? 'page' : null }, label);
+          return h('div', { class: 'chips genre-chips' }, chip('Tutto', g.family.id), ...g.genres.filter((x) => x.name !== g.family.name).map((x) => chip(x.name, x.id)));
+        },
+      });
+      out.push(listPart('list', m, m.entries));
     } else if (!m.entries.length) {
       out.push({ key: 'empty', sig: '', build: () => h('div', { class: 'empty' }, h('div', { class: 'empty-icon' }, icon('heart', 40)), h('h2', {}, 'I brani che ti piacciono appariranno qui')) });
     } else {
@@ -330,7 +353,7 @@ export function detailView(kind, id) {
   }
 
   function parts(m) {
-    const heroSig = JSON.stringify([m.title, m.desc || '', m.cover, !!m.round, metaData(m), kind === 'album' || kind === 'artist' ? '' : `${!!profile.data}|${avatarSig()}`]);
+    const heroSig = JSON.stringify([m.title, m.desc || '', m.cover, !!m.round, metaData(m), kind === 'album' || kind === 'artist' || kind === 'genre' ? '' : `${!!profile.data}|${avatarSig()}`]);
     return [
       { key: 'bg', sig: '', build: () => h('div', { class: 'hero-bg', 'aria-hidden': 'true' }) },
       { key: 'top', sig: m.title, build: () => topBar(m) },

@@ -103,6 +103,8 @@ function resolve(pathname, query) {
   if (pathname === '/search') return searchView(query);
   if (pathname === '/library') return libraryView();
   if (pathname === '/liked') return detailView('liked', null);
+  const genre = /^\/genere\/([a-z0-9.]+)$/.exec(pathname);
+  if (genre) return detailView('genre', genre[1]);
   const m = /^\/(playlist|album|artist)\/([^/]+)$/.exec(pathname);
   const id = m && safeDecode(m[2]);
   if (id) return detailView(m[1], id);

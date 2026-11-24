@@ -1651,6 +1651,54 @@ async function cardRow(vp) {
   await fetch(`${base}/__mock/reset?sources=2`);
 }
 
+/**
+ * The genres: the families in Cerca before the artists, a family's page (its genres as chips,
+ * "Tutto" on), a genre's page (its family as a link), Play in order and with "casuale", the
+ * genres a query finds.
+ */
+async function genres(vp) {
+  const { tag } = vpOf(vp);
+  log(`\n== ${tag} the genres`);
+  await setViewport(vp);
+  await fetch(`${base}/__mock/reset?sources=2`);
+  await go(`${base}/search?nosw`, 2000);
+  const fams = await evaluate(`return { names: [...document.querySelectorAll('.view-search .genre-card .browse-name')].map((x) => x.textContent), titles: [...document.querySelectorAll('.view-search .section-title')].map((x) => x.textContent) };`);
+  check(JSON.stringify(fams.names) === JSON.stringify(['Pop', 'Hip hop e rap', 'Elettronica e dance', 'Colonne sonore e musical']) && JSON.stringify(fams.titles.slice(0, 2)) === JSON.stringify(['Sfoglia tutto', 'Artisti']), `${tag} Cerca: the families with songs, in their order, then "Artisti" (${JSON.stringify(fams)})`);
+  await shot(`${tag}-genres-browse`);
+  await overflowCheck(`${tag} genres browse`);
+  await click('.view-search .genre-card');
+  await sleep(1500);
+  const page = () => evaluate(`return { path: location.pathname, kind: document.querySelector('.view-detail .hero-kind')?.textContent, title: document.querySelector('.view-detail .hero-title')?.textContent, meta: document.querySelector('.view-detail .hero-meta')?.textContent, chips: [...document.querySelectorAll('.view-detail .genre-chips .chip')].map((c) => c.textContent + (c.classList.contains('on') ? '*' : '')), songs: [...document.querySelectorAll('.view-detail .track-row')].length };`);
+  let pg = await page();
+  check(pg.path === '/genere/pop' && pg.kind === 'Genere' && pg.title === 'Pop' && JSON.stringify(pg.chips) === JSON.stringify(['Tutto*', 'J-pop', 'City pop']) && pg.songs === 10, `${tag} a family's page: "Genere", its genres most songs first, "Tutto" on, its 10 songs (${JSON.stringify(pg)})`);
+  await shot(`${tag}-genres-family`);
+  await overflowCheck(`${tag} genre page`);
+  // Play, in order: album artist, album, number.
+  await evaluate(`mpfy.player.setShuffle(false); return true;`);
+  await click('.view-detail .play-big');
+  await sleep(1200);
+  let st = await evaluate(`const s = mpfy.player.state; return { ctx: s.context && s.context.type + ':' + s.context.id, n: s.items.length, titles: s.items.slice(0, 6).map((it) => mpfy.store.track(it.id).title) };`);
+  check(st.ctx === 'genre:pop' && st.n === 10 && JSON.stringify(st.titles) === JSON.stringify(['Città di sale', 'Saline', 'Vento di terra', 'Ultimo traghetto', 'Mareggiata', 'Luce di posizione']), `${tag} Play on a family: its songs in order, album after album (${JSON.stringify(st)})`);
+  // A genre of it: its own page, the family a link back.
+  await evaluate(`[...document.querySelectorAll('.view-detail .genre-chips .chip')].find((c) => c.textContent === 'City pop').click(); return true;`);
+  await sleep(1500);
+  pg = await page();
+  check(pg.path === '/genere/pop.citypop' && pg.title === 'City pop' && /^Pop/.test(pg.meta || '') && JSON.stringify(pg.chips) === JSON.stringify(['Tutto', 'J-pop', 'City pop*']) && pg.songs === 5, `${tag} a genre's page: its 5 songs, "Pop" as a link, its chip on (${JSON.stringify(pg)})`);
+  // Casuale: the shuffle on, Play takes every song of the genre once.
+  await evaluate(`mpfy.player.setShuffle(true); return true;`);
+  await click('.view-detail .play-big');
+  await sleep(1200);
+  st = await evaluate(`const s = mpfy.player.state; const ids = s.items.map((it) => it.id); return { ctx: s.context && s.context.type + ':' + s.context.id, n: ids.length, once: new Set(ids).size === ids.length, shuffle: s.shuffle };`);
+  check(st.ctx === 'genre:pop.citypop' && st.n === 5 && st.once && st.shuffle, `${tag} casuale on a genre: each of its songs once (${JSON.stringify(st)})`);
+  await evaluate(`mpfy.player.pause(); mpfy.player.setShuffle(false); return true;`);
+  // A query finds the genres, by name and written any way.
+  for (const [q, want] of [['city pop', 'City pop'], ['jpop', 'J-pop'], ['colonne', 'Colonne sonore e musical']]) {
+    await go(`${base}/search?q=${encodeURIComponent(q)}&nosw`, 1500);
+    const found = await evaluate(`return [...document.querySelectorAll('.view-search .search-genres .chip')].map((c) => c.textContent);`);
+    check(found.includes(want), `${tag} the query "${q}" finds the genre "${want}" (${JSON.stringify(found)})`);
+  }
+}
+
 /** The profile photo: the letter, the photo through the crop screen, the letter again, the gear. */
 async function photo(vp) {
   const { tag, mobile } = vpOf(vp);
@@ -3123,6 +3171,7 @@ try {
     if (want('update')) await appUpdate(vp);
     if (want('details')) await detailsSwitch(vp);
     if (want('card')) await cardRow(vp);
+    if (want('genres')) await genres(vp);
     if (want('labels')) await labels(vp);
   }
   // The phone's own music, at a phone's size and a PC's (1280x800).

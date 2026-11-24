@@ -87,6 +87,8 @@ const SHELL_FILES = [
   '/js/upload.js',
   '/js/userops.js',
   '/js/util.js',
+  '/js/genres.js',
+  '/js/genre-index.js',
   '/js/vlist.js',
   '/js/when.js',
   '/js/words.js',

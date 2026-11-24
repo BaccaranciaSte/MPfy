@@ -1,8 +1,9 @@
-// Play contexts ({ type, id }): playlist, album, artist, liked, library, search.
+// Play contexts ({ type, id }): playlist, album, artist, liked, genre, library, search.
 // Resolves a context to its tracks, its name and its page; the contexts Home shows first.
 
 import { store } from './store.js';
 import { ctxKey } from './util.js';
+import { genrePage, genreHref } from './genre-index.js';
 
 export const LIKED_NAME = 'Brani che ti piacciono';
 export const LIBRARY_NAME = 'La tua libreria';
@@ -31,6 +32,8 @@ export function contextTracks(ctx) {
       return artistTrackIds(ctx.id);
     case 'liked':
       return d.likedIds.slice();
+    case 'genre':
+      return (genrePage(ctx.id)?.songs || []).map((s) => s.id);
     default:
       return [];
   }
@@ -47,6 +50,8 @@ export function contextName(ctx) {
       return d.artists.get(ctx.id)?.name || ctx.name || 'Artista';
     case 'liked':
       return LIKED_NAME;
+    case 'genre':
+      return genrePage(ctx.id)?.title || ctx.name || 'Genere';
     case 'search':
       return ctx.name || 'Ricerca';
     default:
@@ -62,6 +67,8 @@ export function contextHref(ctx) {
       return `/${ctx.type}/${encodeURIComponent(ctx.id)}`;
     case 'liked':
       return '/liked';
+    case 'genre':
+      return genreHref(ctx.id);
     case 'search':
       return ctx.id ? `/search?q=${encodeURIComponent(ctx.id)}` : '/search';
     default:
@@ -81,6 +88,8 @@ export function contextExists(ctx) {
       return d.artists.has(ctx.id);
     case 'liked':
       return true;
+    case 'genre':
+      return !!genrePage(ctx.id);
     default:
       return false;
   }
