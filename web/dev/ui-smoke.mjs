@@ -1670,6 +1670,26 @@ async function gapless(vp) {
     mpfy.player.pause();
     return out;`);
   check(r.before === 0 && r.swaps === 1 && r.index === 1 && r.playing && r.title === 'Il guardiano del faro', `${tag} the end of a song: the next one was ready and goes on from it (${JSON.stringify(r)})`);
+  // Casuale with "ripeti tutto": the end of the round is a new order, its first not the song that ended.
+  const round = await evaluate(`const al = [...mpfy.store.d.albums.values()].find((a) => a.name === 'Fari nella nebbia');
+    mpfy.player.setShuffle(true);
+    for (let i = 0; i < 3 && mpfy.player.state.repeat !== 'all'; i++) mpfy.player.cycleRepeat();
+    mpfy.player.playContext({ type: 'album', id: al.id }, al.trackIds, 0);
+    await new Promise((res) => setTimeout(res, 1000));
+    for (let i = 0; i < 4; i++) { mpfy.player.next(); await new Promise((res) => setTimeout(res, 600)); }
+    const before = mpfy.player.state.items.map((it) => it.id);
+    const random = Math.random;
+    Math.random = () => 0;
+    mpfy.player.seek(mpfy.player.state.duration - 2);
+    await new Promise((res) => setTimeout(res, 5000));
+    Math.random = random;
+    const s = mpfy.player.state;
+    const out = { repeat: s.repeat, index: s.index, last: before[4], first: s.items[0].id, same: JSON.stringify(s.items.map((it) => it.id)) === JSON.stringify(before), n: s.items.length, playing: s.playing };
+    mpfy.player.pause();
+    mpfy.player.setShuffle(false);
+    while (mpfy.player.state.repeat !== 'off') mpfy.player.cycleRepeat();
+    return out;`);
+  check(round.repeat === 'all' && round.index === 0 && round.n === 5 && !round.same && round.first !== round.last && round.playing, `${tag} casuale and "ripeti tutto": a new round in a new order, not starting with the song that ended (${JSON.stringify(round)})`);
 }
 
 /** "Volume uniforme": a song measured louder than the target plays lower; off, as it is; on again. */

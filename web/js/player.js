@@ -583,10 +583,22 @@ function startedItem() {
 }
 
 /** Web backend: what happens when a track ends or "next" is pressed. */
+// Casuale with "ripeti tutto": a new round is a new order, not the last one again; its first song is
+// not the one that just ended.
+function reshuffled() {
+  const cur = st.items[st.index];
+  const all = shuffleInPlace(st.items.slice());
+  if (all.length > 1 && all[0] === cur) [all[0], all[1]] = [all[1], all[0]];
+  return all;
+}
+
 function advance() {
   const n = st.items.length;
   if (st.index + 1 < n) return go(st.index + 1, true);
-  if (st.repeat === 'all' && n) return go(0, true);
+  if (st.repeat === 'all' && n) {
+    if (st.shuffle && n > 2) st.items = reshuffled();
+    return go(0, true);
+  }
   // End of the list with repeat off: stop on the last track, rewound.
   intent = false;
   backend.pause();
@@ -727,6 +739,9 @@ const handlers = {
     let upcoming = false;
     if (Number.isInteger(s.index) && s.index !== st.index && s.index >= 0 && s.index < st.items.length) {
       // The track changed natively: end of track, notification or Bluetooth next/previous.
+      // The app went round (from the last song to the first, casuale and "ripeti tutto"): the rest
+      // of the new round in a new order, handed back to it (the song playing stays).
+      const round = st.shuffle && st.repeat === 'all' && st.items.length > 2 && st.index === st.items.length - 1 && s.index === 0;
       const dur = durationNow();
       if (dur && st.position >= dur - 2 && !listen.reported && listen.acc > 0) report();
       // A Bluetooth "previous" (or a wrap) must not strand the queued tracks either: reorder,
@@ -734,6 +749,10 @@ const handlers = {
       const moved = carryManual(st.index, s.index);
       st.index = moved.index;
       resync = moved.changed;
+      if (round && st.index === 0) {
+        st.items = [st.items[0], ...shuffleInPlace(st.items.slice(1))];
+        resync = true;
+      }
       const it = currentItem();
       if (it.ci != null) st.lastCi = it.ci;
       st.duration = 0;
