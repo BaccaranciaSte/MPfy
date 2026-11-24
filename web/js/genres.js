@@ -48,6 +48,9 @@ const TABLE = [
   ['K-pop', 'pop'],
   ['C-pop', 'pop', 'mandopop', 'cantopop'],
   ['City pop', 'pop'],
+  ['Kayokyoku', 'pop', 'kayoukyoku', 'kayou kyoku'],
+  ['Shibuya-kei', 'pop'],
+  ['Vocaloid', 'pop'],
   ['Synth pop', 'pop', 'synthpop', 'synth-pop', 'electropop', 'electro pop'],
   ['Dance pop', 'pop', 'dance-pop'],
   ['Indie pop', 'pop'],
@@ -55,6 +58,7 @@ const TABLE = [
   ['Italo pop', 'pop', 'pop italiano', 'italian pop'],
   ['Rock', 'rock'],
   ['J-rock', 'rock'],
+  ['Visual kei', 'rock'],
   ['Pop rock', 'rock', 'pop/rock'],
   ['Pop punk', 'rock'],
   ['Britpop', 'rock'],
@@ -79,7 +83,7 @@ const TABLE = [
   ['Metal', 'metal', 'heavy metal'],
   ['Colonna sonora', 'colonne', 'soundtrack', 'soundtracks', 'ost', 'score', 'film score', 'film soundtrack', 'colonne sonore', 'original soundtrack', 'film', 'films', 'film music', 'movie', 'movies', 'cinema'],
   ['Musical', 'colonne', 'musicals', 'musical theatre', 'musical theater', 'show tunes', 'showtunes', 'broadway', 'cast recording'],
-  ['Anime', 'colonne', 'anime soundtrack', 'anisong'],
+  ['Anime', 'colonne', 'anime soundtrack', 'anisong', 'anison', 'anime song', 'anime music'],
   ['Musica da videogiochi', 'colonne', 'video game music', 'videogame music', 'game music', 'vgm', 'video game soundtrack', 'game soundtrack', 'games', 'game', 'videogiochi', 'videogioco', 'video games', 'videogames'],
   ['Cantautori', 'folk', 'singer-songwriter', 'singer/songwriter', 'cantautorale', 'cantautore', 'canzone d\'autore'],
   ['Folk', 'folk', 'indie folk', 'folk music'],
@@ -165,8 +169,9 @@ export function genreOf(raw) {
   const g = clean(raw || '');
   const key = genreKey(g);
   if (!key) return null;
-  const known = BY_KEY.get(key);
-  if (known) return { key, name: known.name, macro: known.macro };
+  // Wikidata's names say "rock music", "hip hop music": the genre without the word.
+  const known = BY_KEY.get(key) || (key.length > 5 && key.endsWith('music') ? BY_KEY.get(key.slice(0, -5)) : undefined);
+  if (known) return { key: genreKey(known.name), name: known.name, macro: known.macro };
   // As written, with a capital first letter when it was all lower case.
   const name = g === g.toLowerCase() ? g.charAt(0).toUpperCase() + g.slice(1) : g;
   return { key, name, macro: macroOfKey(key) };
