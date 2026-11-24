@@ -3086,7 +3086,7 @@ function validSort (s) {
 function validGenreLookup (g) {
   if (!g || typeof g !== 'object' || g.v !== 1 || (g.state !== 'done' && g.state !== 'failed')) return null
   if (!Number.isFinite(g.at) || !Number.isInteger(g.tries) || g.tries < 1 || !isTrackId(g.fileHash)) return null
-  return { v: 1, state: g.state, at: g.at, tries: g.tries, fileHash: g.fileHash, genres: Array.isArray(g.genres) ? splitGenres(g.genres) : [] }
+  return { v: 1, gv: Number.isInteger(g.gv) && g.gv >= 1 ? g.gv : 1, state: g.state, at: g.at, tries: g.tries, fileHash: g.fileHash, genres: Array.isArray(g.genres) ? splitGenres(g.genres) : [] }
 }
 
 function validLookup (l) {
