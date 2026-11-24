@@ -25,6 +25,7 @@ import { cardOfTrack, cardOfAlbum, cardOfPlaylist } from '../js/music-card.js';
 import { comments } from '../js/comments.js';
 import { lyrics, looksSynced } from '../js/lyrics.js';
 import { openComments } from './comments.js';
+import { splitGenres } from '../js/genres.js';
 
 const LYRICS_MAX_BYTES = 65536;
 
@@ -135,6 +136,8 @@ export async function editTrackInfo(t) {
       { name: 'title', label: 'Titolo', value: t.title },
       { name: 'artist', label: 'Artista', value: t.artist },
       { name: 'album', label: 'Album', value: t.album },
+      // Several, separated by commas; empty: the tags' and the catalogs'.
+      { name: 'genres', label: 'Genere', value: (t.genres || []).join(', ') },
     ],
   });
   if (!v) return;
@@ -143,6 +146,8 @@ export async function editTrackInfo(t) {
     const val = v[k].trim();
     if (val && val !== t[k]) patch[k] = val;
   }
+  const genres = splitGenres(v.genres);
+  if (genres.join('|') !== (t.genres || []).join('|')) patch.genres = genres;
   if (!Object.keys(patch).length) return;
   if (await store.editTrack(t.id, patch)) toast('Info aggiornate');
 }

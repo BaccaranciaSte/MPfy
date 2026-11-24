@@ -2489,6 +2489,9 @@ export class Library {
       next.artist = v
     }
     if (body.album !== undefined) next.album = text(body.album, 500) || UNKNOWN_ALBUM
+    // The genres a person writes are the song's: the tags read again and the catalogs never touch
+    // them (both fill only a song with none). An empty field leaves it to the catalogs.
+    if (body.genres !== undefined) next.genres = splitGenres(Array.isArray(body.genres) ? body.genres : typeof body.genres === 'string' ? [body.genres] : [])
     // What a person changed is theirs: details from the network never touch it.
     const edited = new Set(t.edited || [])
     for (const k of EDITABLE_FIELDS) if (next[k] !== t[k]) edited.add(k)

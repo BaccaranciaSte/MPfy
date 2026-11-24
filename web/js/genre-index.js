@@ -8,7 +8,7 @@
 // and digits only (genres.js genreKey), so the dot never belongs to one.
 
 import { store } from './store.js';
-import { genreOf, MACROS } from './genres.js';
+import { genreOf, splitGenres, MACROS } from './genres.js';
 import { cmpText } from './util.js';
 
 const known = new Map(); // a genre as tagged -> genreOf() of it (null kept too)
@@ -28,8 +28,9 @@ function genresOfSong(song) {
   const lists = Array.isArray(song.versions) && song.versions.length ? song.versions.map((v) => v.t && v.t.genres) : [song.genres];
   for (const list of lists) {
     if (!Array.isArray(list)) continue;
-    for (const g of list) {
-      const x = typeof g === 'string' ? lookup(g) : null;
+    // Cut as a tag is (a source that sent them whole: Soundtrack;Musical is two).
+    for (const g of splitGenres(list)) {
+      const x = lookup(g);
       if (x && !out.has(x.key)) out.set(x.key, x);
     }
   }

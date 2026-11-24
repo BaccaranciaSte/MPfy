@@ -1789,6 +1789,25 @@ async function genres(vp) {
   await sleep(1200);
   await evaluate(`[...document.querySelectorAll('.view-detail .genre-chips .chip')].find((c) => c.textContent === 'City pop').click(); return true;`);
   await sleep(1200);
+  // "Modifica informazioni": a song with no genre written one ("Genere", several by commas) joins it.
+  const rotte = await evaluate(`return [...mpfy.store.d.albums.values()].find((a) => a.name === 'Rotte').id;`);
+  await go(`${base}/album/${rotte}?nosw`, 1500);
+  await click('.view-detail .track-row .tr-more');
+  await sleep(700);
+  await evaluate(`[...document.querySelectorAll('.layer-sheet .menu-item')].find((x) => x.textContent.includes('Modifica informazioni')).click(); return true;`);
+  await sleep(700);
+  const field = await evaluate(`const l = [...document.querySelectorAll('.dialog-fields .field')].find((x) => x.querySelector('.field-label').textContent === 'Genere'); if (!l) return null; const i = l.querySelector('input'); const was = i.value; i.value = 'Anime, J-Pop'; i.dispatchEvent(new Event('input', { bubbles: true })); return { was };`);
+  await evaluate(`document.querySelector('.layer .btn-primary').click(); return true;`);
+  await sleep(1500);
+  const edited = await evaluate(`const t = mpfy.store.d.tracks.get(mpfy.store.d.albums.get('${rotte}').trackIds[0]); return t.genres;`);
+  await go(`${base}/genere/colonne?nosw`, 1500);
+  const inFamily = await evaluate(`return [...document.querySelectorAll('.view-detail .genre-chips .chip')].map((c) => c.textContent);`);
+  check(field && field.was === '' && JSON.stringify(edited) === JSON.stringify(['Anime', 'J-Pop']) && inFamily.includes('Anime'), `${tag} "Modifica informazioni", "Genere": the song takes what was written (${JSON.stringify({ field, edited, inFamily })})`);
+  await go(`${base}/search?nosw`, 1500);
+  await click('.view-search .genre-card');
+  await sleep(1200);
+  await evaluate(`[...document.querySelectorAll('.view-detail .genre-chips .chip')].find((c) => c.textContent === 'City pop').click(); return true;`);
+  await sleep(1200);
   // The chips take the page's place: Back leaves the genres (to Cerca), not the last chip.
   await evaluate(`history.back(); return true;`);
   await sleep(1200);

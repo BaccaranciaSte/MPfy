@@ -1994,6 +1994,7 @@ const routes = [
       const b = await readJson(req);
       if (b.title !== undefined) t.title = str(b.title, 'titolo');
       if (b.album !== undefined) t.album = str(b.album, 'album');
+      if (b.genres !== undefined) t.genres = Array.isArray(b.genres) ? b.genres.filter((g) => typeof g === 'string' && g) : [];
       if (b.artist !== undefined) {
         const artist = str(b.artist, 'artista');
         if (t.albumArtist === t.artist) t.albumArtist = artist;
