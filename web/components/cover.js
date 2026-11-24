@@ -2,8 +2,8 @@
 // with a heart, or a placeholder with a music note.
 //
 // Covers follow their priority (custom track cover, else custom album cover, else the embedded one;
-// playlists: custom cover, else the mosaic), resolved by the store. Lists and grids load
-// ?size=small, headers and Now Playing ?size=large: coverEl(spec, { size }).
+// playlists: custom cover, else the mosaic), resolved by the store. Lists load ?size=small;
+// the cards of the grids, headers and Now Playing ?size=large: coverEl(spec, { size }).
 
 import { h } from '../js/dom.js';
 import { icon } from '../icons/icons.js';

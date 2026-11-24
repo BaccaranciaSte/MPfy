@@ -114,7 +114,7 @@ function bestCard(best, playTrack) {
     href = al ? `/album/${al}` : null;
     onPlay = () => playTrack(t.id);
   }
-  const el = h('div', { class: 'best' }, coverEl(cover, { cls: 'best-cover', round }), h('div', { class: 'best-title' }, title), h('div', { class: 'best-sub' }, chip));
+  const el = h('div', { class: 'best' }, coverEl(cover, { cls: 'best-cover', round, size: 'large' }), h('div', { class: 'best-title' }, title), h('div', { class: 'best-sub' }, chip));
   if (href) el.append(h('a', { class: 'card-link', href, 'data-link': '', 'aria-label': title }));
   if (ctx) el.append(playCtxButton(ctx, { cls: 'best-play', label: `Riproduci ${title}` }));
   else if (onPlay) {
@@ -131,7 +131,7 @@ function browseCard(ar) {
     'a',
     { class: 'browse-card', href: `/artist/${ar.id}`, 'data-link': '', style: { '--c': css(rgb) } },
     h('span', { class: 'browse-name' }, ar.name),
-    coverEl(specs.artist(ar), { cls: 'browse-cover' })
+    coverEl(specs.artist(ar), { cls: 'browse-cover', size: 'large' })
   );
   if (!cachedColor(ar.coverId) && ar.coverId) dominantColor(ar.coverId).then((c) => c && el.style.setProperty('--c', css(c)));
   return el;

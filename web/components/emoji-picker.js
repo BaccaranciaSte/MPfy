@@ -49,9 +49,10 @@ export const emojiSections = () => allSections();
 
 /**
  * Opens the panel. host: where the phone's panel goes (under the composer); button: the emoji
- * button (a tap on it is left to it, which closes); onPick(emoji). Returns { el, close() }.
+ * button (a tap on it is left to it, which closes); keep: another control a tap on leaves it open
+ * (send: closing first would slide the composer from under the finger and lose the tap); onPick(emoji). Returns { el, close() }.
  */
-export function openEmojiPicker({ host, button, onPick, onClose = () => {} }) {
+export function openEmojiPicker({ host, button, keep = null, onPick, onClose = () => {} }) {
   const pop = desktop.matches;
   const grid = h('div', { class: 'emoji-grid' });
   const scroll = h('div', { class: 'emoji-scroll' }, grid);
@@ -80,7 +81,7 @@ export function openEmojiPicker({ host, button, onPick, onClose = () => {} }) {
   let closed = false;
   let stopChunks = () => {};
   const outside = (ev) => {
-    if (el.contains(ev.target) || (button && button.contains(ev.target))) return;
+    if (el.contains(ev.target) || (button && button.contains(ev.target)) || (keep && keep.contains(ev.target))) return;
     close();
   };
   function close() {

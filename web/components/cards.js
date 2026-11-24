@@ -28,7 +28,7 @@ export function playCtxButton(ctx, { cls = '', size = 24, label } = {}) {
  */
 export function card({ href, onClick, title, sub, cover, round = false, ctx = null }) {
   const el = h('div', { class: `card${round ? ' round' : ''}`, dataset: ctx ? { playCtx: ctxKey(ctx) } : {} });
-  const coverBox = h('div', { class: 'card-cover' }, coverEl(cover, { round }));
+  const coverBox = h('div', { class: 'card-cover' }, coverEl(cover, { round, size: 'large' }));
   const label = round ? `${title}, artista` : title;
   const link = href
     ? h('a', { class: 'card-link', href, 'data-link': '', 'aria-label': label })

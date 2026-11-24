@@ -525,6 +525,8 @@ async function swCheck() {
   // The VPS offline and a cover of its own never cached by the worker (the large one of an album
   // only on the VPS): the page asks the worker's cache only (&cached=1), never the core (which
   // would hold a connection while it waits for the link), and draws it when the VPS comes back.
+  // The cards of Home load the large ones too: they leave the worker's cache first.
+  await evaluate(`const c = await caches.open('mpfy-covers-v1'); for (const k of await c.keys()) if (k.url.includes('size=large')) await c.delete(k); return true;`);
   await fetch(`${base}/__mock/offline?source=${vps.id}&on=1`);
   const rotte = await evaluate(`return [...mpfy.store.d.albums.values()].find((a) => a.name === 'Rotte').id;`);
   await go(`${base}/album/${rotte}`, 3000);
@@ -2371,6 +2373,9 @@ async function chats(vp) {
   await evaluate(`document.querySelectorAll('.emoji-panel .emoji-cell')[3].click(); return true;`);
   const ins = await evaluate(`return Array.from(document.querySelector('.view-chat textarea').value);`);
   check(ins.length === 3 && ins[0] === 'a' && ins[2] === 'b' && ins[1].codePointAt(0) > 0x1f000, `${tag} a tap inserts the emoji at the caret (${JSON.stringify(ins)})`);
+  // A tap on Invia leaves the panel open: closing it first slid the composer from under the finger.
+  const keptOpen = await evaluate(`document.querySelector('.view-chat .composer-send').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); return !!document.querySelector('.emoji-panel');`);
+  check(keptOpen, `${tag} a tap on Invia leaves the emoji panel open (${keptOpen})`);
   await systemBack();
   const closedBack = await evaluate(`return !document.querySelector('.emoji-panel') && location.pathname;`);
   check(closedBack === `/chat/${giulia}`, `${tag} Back closes the panel, the chat stays (${closedBack})`);
