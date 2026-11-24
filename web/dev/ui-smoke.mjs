@@ -1734,6 +1734,20 @@ async function genres(vp) {
   await sleep(1200);
   let st = await evaluate(`const s = mpfy.player.state; return { ctx: s.context && s.context.type + ':' + s.context.id, n: s.items.length, titles: s.items.slice(0, 6).map((it) => mpfy.store.track(it.id).title) };`);
   check(st.ctx === 'genre:pop' && st.n === 10 && JSON.stringify(st.titles) === JSON.stringify(['Città di sale', 'Saline', 'Vento di terra', 'Ultimo traghetto', 'Mareggiata', 'Luce di posizione']), `${tag} Play on a family: its songs in order, album after album (${JSON.stringify(st)})`);
+  // "Ordina per": by title the list and Play start from the first title; back to by album.
+  await evaluate(`localStorage.removeItem('mpfy.genre.sort'); return true;`);
+  await click('.view-detail .genre-sort');
+  await sleep(700);
+  await evaluate(`[...document.querySelectorAll('.layer-sheet .menu-item')].find((x) => x.textContent.includes('Titolo')).click(); return true;`);
+  await sleep(900);
+  const byTitle = await evaluate(`const rows = [...document.querySelectorAll('.view-detail .track-row .tr-title')].map((x) => x.textContent); return { first: rows[0], label: document.querySelector('.view-detail .genre-sort').textContent };`);
+  // Something else playing, so the button starts the genre (on the genre playing it would go on).
+  await evaluate(`const t = mpfy.store.lib.tracks[0]; mpfy.player.playContext({ type: 'search', id: 'x' }, [t.id], 0); await new Promise((r) => setTimeout(r, 500)); mpfy.player.pause(); return true;`);
+  await click('.view-detail .play-big');
+  await sleep(1200);
+  const playedFirst = await evaluate(`const s = mpfy.player.state; mpfy.player.pause(); return mpfy.store.track(s.items[0].id).title;`);
+  check(byTitle.first === 'Approdo' && byTitle.label === 'Titolo' && playedFirst === 'Approdo', `${tag} "Ordina per: Titolo" on a genre: the list and Play from the first title (${JSON.stringify(byTitle)}, played ${playedFirst})`);
+  await evaluate(`localStorage.removeItem('mpfy.genre.sort'); return true;`);
   // A genre of it: its own page, the family a link back.
   await evaluate(`[...document.querySelectorAll('.view-detail .genre-chips .chip')].find((c) => c.textContent === 'City pop').click(); return true;`);
   await sleep(1500);

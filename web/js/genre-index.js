@@ -52,6 +52,44 @@ function inOrder(a, b) {
 
 let memo = null; // { seq, index }
 
+// How a genre's page lists its songs, and so how Play goes through them: by album (the default),
+// by title, or the newest first. Kept for the next time.
+const SORT_KEY = 'mpfy.genre.sort';
+export const GENRE_SORTS = [
+  ['album', 'Artista e album'],
+  ['title', 'Titolo'],
+  ['added', 'Aggiunti di recente'],
+];
+export function genreSort() {
+  try {
+    const v = localStorage.getItem(SORT_KEY);
+    return GENRE_SORTS.some(([k]) => k === v) ? v : 'album';
+  } catch {
+    return 'album';
+  }
+}
+export function setGenreSort(v) {
+  try {
+    if (v === 'album') localStorage.removeItem(SORT_KEY);
+    else localStorage.setItem(SORT_KEY, v);
+  } catch {
+    /* the default stays */
+  }
+}
+const byTitle = (a, b) => cmpText(sortOf(a, 'title') || a.title || '', sortOf(b, 'title') || b.title || '') || inOrder(a, b);
+const byAdded = (a, b) => (b.addedAt || 0) - (a.addedAt || 0) || inOrder(a, b);
+const sorted = new Map(); // "seq|id|sort" -> the songs in that order
+function inSort(seq, id, songs) {
+  const sort = genreSort();
+  if (sort === 'album') return songs;
+  const k = `${seq}|${id}|${sort}`;
+  if (!sorted.has(k)) {
+    if (sorted.size > 64) sorted.clear();
+    sorted.set(k, songs.slice().sort(sort === 'title' ? byTitle : byAdded));
+  }
+  return sorted.get(k);
+}
+
 /** { families: Map(id -> { id, name, songs, genres: Map(key -> { key, name, songs }) }) } */
 export function genreIndex() {
   const seq = typeof store.changed === 'function' ? store.changed().seq : null;
@@ -127,7 +165,8 @@ export function genrePage(id) {
   const genres = [...f.genres.values()]
     .sort((a, b) => b.songs.length - a.songs.length || cmpText(a.name, b.name))
     .map((g) => ({ id: `${f.id}.${g.key}`, name: g.name, count: g.songs.length }));
-  return { id: sub ? `${f.id}.${sub.key}` : f.id, title: sub ? sub.name : f.name, family: { id: f.id, name: f.name }, genre: sub ? { key: sub.key, name: sub.name } : null, songs: sub ? sub.songs : f.songs, genres };
+  const pid = sub ? `${f.id}.${sub.key}` : f.id;
+  return { id: pid, title: sub ? sub.name : f.name, family: { id: f.id, name: f.name }, genre: sub ? { key: sub.key, name: sub.name } : null, songs: inSort(memo ? memo.seq : null, pid, sub ? sub.songs : f.songs), genres };
 }
 
 export const genreHref = (id) => `/genere/${id}`;

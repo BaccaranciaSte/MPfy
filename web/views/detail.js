@@ -31,7 +31,8 @@ import { toast } from '../components/toast.js';
 import { openTrackMenu, openPlaylistMenu, openCollectionMenu, openAddTracks } from '../components/menus.js';
 import { profile } from '../js/profile.js';
 import { avatar, avatarSig } from '../components/avatar.js';
-import { genrePage, genreHref } from '../js/genre-index.js';
+import { genrePage, genreHref, genreSort, setGenreSort, GENRE_SORTS } from '../js/genre-index.js';
+import { openSheet } from '../components/sheet.js';
 
 const KIND_LABEL = { playlist: 'Playlist', album: 'Album', artist: 'Artista', liked: 'Playlist', genre: 'Genere' };
 
@@ -341,6 +342,32 @@ export function detailView(kind, id) {
         build: () => {
           const chip = (label, gid) => h('a', { class: `chip${gid === g.id ? ' on' : ''}`, href: genreHref(gid), 'data-link': '', 'data-replace': '', 'aria-current': gid === g.id ? 'page' : null }, label);
           return h('div', { class: 'chips genre-chips' }, chip('Tutto', g.family.id), ...g.genres.filter((x) => x.name !== g.family.name).map((x) => chip(x.name, x.id)));
+        },
+      });
+      // How its songs are listed (and played): "Ordina per", as in the library.
+      const sort = genreSort();
+      out.push({
+        key: 'genre-sort',
+        sig: sort,
+        build: () => {
+          const label = GENRE_SORTS.find(([k]) => k === sort)[1];
+          const b = h('button', { type: 'button', class: 'sort-btn genre-sort', 'aria-label': `Ordina per: ${label}` }, icon('sort', 18), h('span', {}, label));
+          b.addEventListener('click', () =>
+            openSheet({
+              header: h('div', { class: 'sheet-title' }, 'Ordina per'),
+              label: 'Ordina per',
+              items: GENRE_SORTS.map(([key, text]) => ({
+                icon: sort === key ? 'check' : 'sort',
+                label: text,
+                active: sort === key,
+                onSelect: () => {
+                  setGenreSort(key);
+                  render();
+                },
+              })),
+            })
+          );
+          return h('div', { class: 'sort-row' }, b);
         },
       });
       out.push(listPart('list', m, m.entries));
