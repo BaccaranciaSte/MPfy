@@ -12,6 +12,7 @@ import { AUDIO_FORMATS, COVER_MIME } from './ids.mjs'
 import { codecOf } from './quality.mjs'
 import { writeAtomicSync } from './util.mjs'
 import { splitGenres } from '../web/js/genres.js'
+import { loudFromTags } from '../web/js/loudness.js'
 
 export const HEAD_BYTES = 4096
 export const MAX_COVER_BYTES = 16 * 1024 * 1024
@@ -374,6 +375,33 @@ export function taglessOf (common, coverId) {
   return out
 }
 
+/** The sort tags (artist, album artist, album, title), cleaned: null when there are none. */
+export function sortOf (c) {
+  const out = {}
+  for (const [k, v] of [['artist', c.artistsort], ['albumArtist', c.albumartistsort], ['album', c.albumsort], ['title', c.titlesort]]) {
+    const x = cleanTag(v)
+    if (x) out[k] = x
+  }
+  return Object.keys(out).length > 0 ? out : null
+}
+
+/** The ReplayGain and R128 numbers of the tags, as loudness.js takes them. */
+export function gainTagsOf (metadata) {
+  const c = metadata.common || {}
+  const native = metadata.native || {}
+  const db = (x) => (x && typeof x.dB === 'number' ? x.dB : null)
+  const ratio = (x) => (x && typeof x.ratio === 'number' ? x.ratio : null)
+  const r128 = (id) => {
+    for (const list of Object.values(native)) {
+      for (const tag of Array.isArray(list) ? list : []) {
+        if (tag && typeof tag.id === 'string' && tag.id.toUpperCase() === id && /^-?\d+$/.test(String(tag.value).trim())) return Number(String(tag.value).trim())
+      }
+    }
+    return null
+  }
+  return { trackGain: db(c.replaygain_track_gain), trackPeak: ratio(c.replaygain_track_peak), albumGain: db(c.replaygain_album_gain), albumPeak: ratio(c.replaygain_album_peak), r128Track: r128('R128_TRACK_GAIN'), r128Album: r128('R128_ALBUM_GAIN') }
+}
+
 /**
  * Build the track object from parsed metadata.
  * @param {object} p
@@ -418,6 +446,8 @@ export function buildTrack ({ id, format, metadata, size, fallbackTitle, coverId
     sampleRate,
     bitDepth,
     tagless: taglessOf(common, coverId),
-    genres: splitGenres(common.genre || [])
+    genres: splitGenres(common.genre || []),
+    sort: sortOf(common),
+    loud: loudFromTags(gainTagsOf(metadata))
   }
 }

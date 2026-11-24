@@ -137,6 +137,22 @@ test('lyrics from the parts equal lyrics from the tags, on every file of the lyr
 const FORMATS = ['mp3', 'aac', 'm4a', 'flac', 'ogg', 'opus', 'wav']
 const CODECS = ['audio/mpeg', 'audio/mp4a-latm', 'audio/alac', 'audio/flac', 'audio/vorbis', 'audio/opus', 'audio/raw', 'ALAC', null, '']
 const TEXTS = [null, '', '  ', 'Mare', ' Ultimo traghetto ', 'Lumen\tMarino', 'riga\nnuova', 'Città di sale', '夜に駆ける', 'a'.repeat(600), '\u0000x\u001f', 'Artista sconosciuto', 'Album sconosciuto']
+const SORTS = [undefined, null, '', '  ', ' Beatles, The ', 'Fujii Kaze', 'a'.repeat(600)]
+const GAINS = [undefined, null, {}, { trackGain: -6.52, trackPeak: 0.988 }, { trackGain: 3.1, albumGain: -2, albumPeak: 1.2 }, { r128Track: -1234, r128Album: 512 }, { trackGain: NaN }, { trackGain: -200 }, { trackPeak: 0.5 }, { trackGain: -9, r128Track: 100 }]
+// ReplayGain as music-metadata gives it (dB and ratio), R128 as an Opus tag.
+function gainsOf (rg) {
+  if (!rg) return {}
+  const gain = (v) => (v === undefined ? undefined : { dB: v, ratio: 10 ** (v / 20) })
+  const peak = (v) => (v === undefined ? undefined : { ratio: v, dB: 20 * Math.log10(v) })
+  return { replaygain_track_gain: gain(rg.trackGain), replaygain_track_peak: peak(rg.trackPeak), replaygain_album_gain: gain(rg.albumGain), replaygain_album_peak: peak(rg.albumPeak) }
+}
+function r128Of (rg) {
+  if (!rg) return {}
+  const tags = []
+  if (rg.r128Track !== undefined) tags.push({ id: 'R128_TRACK_GAIN', value: String(rg.r128Track) })
+  if (rg.r128Album !== undefined) tags.push({ id: 'R128_ALBUM_GAIN', value: String(rg.r128Album) })
+  return { vorbis: tags }
+}
 const GENRES = [undefined, [], ['J-Pop'], ['Hip-Hop/Rap', 'rap', ''], ['Soundtrack\u0000Musical'], ['  ', '(17)'], ['a'.repeat(60), 'Città pop', '夜', 'Rock', 'Metal', 'Jazz', 'Folk']]
 const NUMBERS = [null, 0, -1, 1, 3, 12, 2019, 1.5, '3', NaN]
 const NAMES = ['01 - Mare.mp3', 'Mare.flac', '.mp3', 'senza estensione', '  spazi  .m4a', '', 'a/b\\c.ogg', 'x\u202e.mp3', 'Artista - Titolo.opus', '03.Traccia 3.wav']
@@ -158,7 +174,12 @@ function facts (r, n) {
       trackNo: pick(r, NUMBERS),
       discNo: pick(r, NUMBERS),
       year: pick(r, NUMBERS),
-      genres: pick(r, GENRES)
+      genres: pick(r, GENRES),
+      artistSort: pick(r, SORTS),
+      albumArtistSort: pick(r, SORTS),
+      albumSort: pick(r, SORTS),
+      titleSort: pick(r, SORTS),
+      rg: pick(r, GAINS)
     },
     format,
     codec: pick(r, CODECS),
@@ -184,8 +205,14 @@ function metadataOf (F) {
       track: { no: F.tags.trackNo, of: null },
       disk: { no: F.tags.discNo, of: null },
       year: num(F.tags.year),
-      genre: F.tags.genres || []
+      genre: F.tags.genres || [],
+      artistsort: num(F.tags.artistSort),
+      albumartistsort: num(F.tags.albumArtistSort),
+      albumsort: num(F.tags.albumSort),
+      titlesort: num(F.tags.titleSort),
+      ...gainsOf(F.tags.rg)
     },
+    native: r128Of(F.tags.rg),
     format: { duration: num(F.duration), bitrate: num(F.bitrate), sampleRate: num(F.sampleRate), bitsPerSample: num(F.bitDepth), codec: num(F.codec) }
   }
 }

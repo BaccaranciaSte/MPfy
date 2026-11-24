@@ -768,7 +768,10 @@ export class MediaJobs {
       }
       const genresRead = now.genres === null
       if (genresRead) {
+        // Read with the genres: its sort tags and the loudness its tags give.
         next.genres = fresh.genres
+        next.sort = fresh.sort
+        if (now.loud === null) next.loud = fresh.loud
         changed = true
       }
       if (!changed) return

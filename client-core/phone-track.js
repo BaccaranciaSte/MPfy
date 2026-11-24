@@ -5,7 +5,8 @@
 //
 // The facts (F), as the host sends them:
 //   { id, name, size, mtime, addedAt,
-//     tags: { title, artist, album, albumArtist, trackNo, discNo, year, genres? },
+//     tags: { title, artist, album, albumArtist, trackNo, discNo, year, genres?, artistSort?,
+//       albumArtistSort?, albumSort?, titleSort?, rg?: { trackGain, trackPeak, albumGain, albumPeak, r128Track, r128Album } },
 //     format, codec, duration, bitrate, sampleRate, bitDepth, coverId,
 //     lyrics: { synced: [[{ t, text }]], texts: [text], lrc: text | null }, was: [id] }
 //
@@ -79,7 +80,9 @@ export function cleanFacts (F) {
       trackNo: count(tags.trackNo),
       discNo: count(tags.discNo),
       year: count(tags.year),
-      ...genresOf(tags.genres)
+      ...genresOf(tags.genres),
+      ...sortTagsOf(tags),
+      ...gainTagsOf(tags.rg)
     },
     format: F.format,
     codec: text(F.codec),
@@ -97,6 +100,26 @@ export function cleanFacts (F) {
 function genresOf (g) {
   const list = Array.isArray(g) ? g.filter((s) => typeof s === 'string').slice(0, 16).map((s) => s.slice(0, MAX_TEXT)) : []
   return list.length > 0 ? { genres: list } : {}
+}
+
+// The sort tags the host read: only those it has (facts without them hash as before).
+function sortTagsOf (tags) {
+  const out = {}
+  for (const k of ['artistSort', 'albumArtistSort', 'albumSort', 'titleSort']) {
+    const v = text(tags[k])
+    if (v !== null) out[k] = v
+  }
+  return out
+}
+
+// The ReplayGain and R128 numbers the host read (loudness.js): only finite ones; none, no key.
+function gainTagsOf (rg) {
+  if (rg === null || typeof rg !== 'object') return {}
+  const out = {}
+  for (const k of ['trackGain', 'trackPeak', 'albumGain', 'albumPeak', 'r128Track', 'r128Album']) {
+    if (typeof rg[k] === 'number' && Number.isFinite(rg[k])) out[k] = rg[k]
+  }
+  return Object.keys(out).length > 0 ? { rg: out } : {}
 }
 
 /** The hash of the facts (16 hex): a put of facts with this hash again changes nothing. */
@@ -187,6 +210,8 @@ export function servedText (stored) {
   for (const k of PUBLIC_FIELDS) out[k] = stored[k] === undefined ? null : stored[k]
   let s = JSON.stringify(out).slice(0, -1)
   if (Array.isArray(stored.genres) && stored.genres.length > 0) s += ',"genres":' + JSON.stringify(stored.genres)
+  if (stored.sort) s += ',"sort":' + JSON.stringify(stored.sort)
+  if (stored.loud) s += ',"loud":' + JSON.stringify(stored.loud)
   s += ',"qualities":' + NO_QUALITIES
   const lyrics = shownLyrics(stored)
   if (lyrics !== null) s += ',"lyrics":"' + lyrics + '"'

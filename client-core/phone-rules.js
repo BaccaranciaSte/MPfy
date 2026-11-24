@@ -17,6 +17,7 @@ import b4a from 'b4a'
 import sodium from 'sodium-native'
 import { differentVersions } from './versions.js'
 import { splitGenres } from '../web/js/genres.js'
+import { loudFromTags } from '../web/js/loudness.js'
 
 export const UNKNOWN_ARTIST = 'Artista sconosciuto'
 export const UNKNOWN_ALBUM = 'Album sconosciuto'
@@ -129,8 +130,20 @@ export function trackFromFacts (F) {
     sampleRate: typeof F.sampleRate === 'number' && F.sampleRate > 0 ? Math.round(F.sampleRate) : null,
     bitDepth: lossless && typeof F.bitDepth === 'number' && F.bitDepth > 0 ? F.bitDepth : null,
     tagless: taglessOf(tags, F.coverId),
-    genres: splitGenres(tags.genres || [])
+    genres: splitGenres(tags.genres || []),
+    sort: sortOf(tags),
+    loud: loudFromTags(tags.rg)
   }
+}
+
+// The sort tags (media.mjs sortOf).
+function sortOf (tags) {
+  const out = {}
+  for (const [k, v] of [['artist', tags.artistSort], ['albumArtist', tags.albumArtistSort], ['album', tags.albumSort], ['title', tags.titleSort]]) {
+    const x = cleanTag(v)
+    if (x) out[k] = x
+  }
+  return Object.keys(out).length > 0 ? out : null
 }
 
 // ----------------------------------------------------------------- the details

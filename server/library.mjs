@@ -85,6 +85,7 @@ import {
 import { Places, CODE } from './places.mjs'
 import { readDbJson, hashFile, HASH_RE } from './dbjson.mjs'
 import { splitGenres } from '../web/js/genres.js'
+import { validLoud } from '../web/js/loudness.js'
 
 export const DB_SCHEMA = 3
 export const LOG_SCHEMA = 1
@@ -2344,6 +2345,9 @@ export class Library {
     const gl = t.genreLookup
     if (t.genres && t.genres.length > 0) out.genres = t.genres
     else if (gl && gl.fileHash === t.fileHash && gl.genres.length > 0) out.genres = gl.genres
+    // The same: only when the track has them.
+    if (t.sort) out.sort = t.sort
+    if (t.loud) out.loud = t.loud
     out.qualities = { ...this.qualitiesOf(t) }
     const lyrics = this.lyricsOf(t.id)
     if (lyrics !== null) out.lyrics = lyrics
@@ -3049,7 +3053,10 @@ function storedTrack (t, legacy, fp) {
     tagless: Array.isArray(t.tagless) ? TAGLESS_FIELDS.filter((f) => t.tagless.includes(f)) : null,
     edited: Array.isArray(t.edited) ? EDITABLE_FIELDS.filter((f) => t.edited.includes(f)) : [],
     // null: a track from before the genres, its tags not read for them yet (jobs.mjs)
-    genres: Array.isArray(t.genres) ? splitGenres(t.genres) : null
+    genres: Array.isArray(t.genres) ? splitGenres(t.genres) : null,
+    sort: validSort(t.sort),
+    // the tags' or the measured one (jobs.mjs); null: not known yet
+    loud: validLoud(t.loud)
   }
   if (lossless && out.fakeLossless !== true) out.equivKbps = null
   if (out.fakeLossless === true && out.equivKbps === null) out.fakeLossless = null
@@ -3067,6 +3074,15 @@ function storedTrack (t, legacy, fp) {
 }
 
 // The genres MusicBrainz gave a track whose tags have none (details.mjs): null when not valid.
+// The sort tags of a track (media.mjs sortOf): null when none is valid.
+const SORT_KEYS = ['artist', 'albumArtist', 'album', 'title']
+function validSort (s) {
+  if (!s || typeof s !== 'object') return null
+  const out = {}
+  for (const k of SORT_KEYS) if (typeof s[k] === 'string' && s[k].length > 0 && s[k].length <= 500) out[k] = s[k]
+  return Object.keys(out).length > 0 ? out : null
+}
+
 function validGenreLookup (g) {
   if (!g || typeof g !== 'object' || g.v !== 1 || (g.state !== 'done' && g.state !== 'failed')) return null
   if (!Number.isFinite(g.at) || !Number.isInteger(g.tries) || g.tries < 1 || !isTrackId(g.fileHash)) return null
