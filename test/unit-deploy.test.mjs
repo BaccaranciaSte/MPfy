@@ -155,3 +155,16 @@ test('deploy: the memory cards are bound once into the chroot, as a slave, and t
   assert.match(readme, /--groups=3003,3004,1023 /, 'the commands by hand get the same groups')
   assert.match(readme, /\| Music on the memory card \| `\/mnt\/media_rw\/<scheda>\/MPfy` \| `\/home\/mpfy\/cards\/<scheda>\/MPfy` \|/)
 })
+
+test('the package for the phone carries every file of web/ the source imports', () => {
+  const sh = fs.readFileSync(new URL('../deploy/push-to-phone.sh', import.meta.url), 'utf8')
+  const listed = new Set(sh.split('\n').find((l) => l.includes('tar --force-local -cf')).split(/\s+/))
+  const wanted = new Set()
+  const dir = new URL('../server/', import.meta.url)
+  for (const f of fs.readdirSync(dir)) {
+    if (!f.endsWith('.mjs')) continue
+    for (const m of fs.readFileSync(new URL(f, dir), 'utf8').matchAll(/from '\.\.\/(web\/[^']+)'/g)) wanted.add(m[1])
+  }
+  assert.ok(wanted.size > 0)
+  for (const w of wanted) assert.ok(listed.has(w), w + ' is not in the package')
+})
