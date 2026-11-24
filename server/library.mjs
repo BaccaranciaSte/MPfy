@@ -84,6 +84,7 @@ import {
 } from './vjournal.mjs'
 import { Places, CODE } from './places.mjs'
 import { readDbJson, hashFile, HASH_RE } from './dbjson.mjs'
+import { splitGenres } from '../web/js/genres.js'
 
 export const DB_SCHEMA = 3
 export const LOG_SCHEMA = 1
@@ -1898,6 +1899,7 @@ export class Library {
     n.uploaders = this._arr(n.uploaders)
     n.notSame = this._arr(n.notSame)
     n.tagless = this._arr(n.tagless)
+    n.genres = this._arr(n.genres)
     n.edited = this._arr(n.edited)
     if (n.lookup) {
       n.lookup.state = this._str(n.lookup.state)
@@ -2337,6 +2339,8 @@ export class Library {
     const out = {}
     for (const k of PUBLIC_FIELDS) out[k] = t[k] === undefined ? null : t[k]
     if (out.fp !== null) out.fp = { d: t.fp.d, b: t.fp.b, s: t.fp.s }
+    // Only when it has some: an answer without genres stays as it was before them.
+    if (t.genres && t.genres.length > 0) out.genres = t.genres
     out.qualities = { ...this.qualitiesOf(t) }
     const lyrics = this.lyricsOf(t.id)
     if (lyrics !== null) out.lyrics = lyrics
@@ -3040,7 +3044,9 @@ function storedTrack (t, legacy, fp) {
     notSame: Array.isArray(t.notSame) ? [...new Set(t.notSame.filter(isTrackId))] : [],
     fpState: ['ok', 'failed', 'none'].includes(t.fpState) ? t.fpState : 'none',
     tagless: Array.isArray(t.tagless) ? TAGLESS_FIELDS.filter((f) => t.tagless.includes(f)) : null,
-    edited: Array.isArray(t.edited) ? EDITABLE_FIELDS.filter((f) => t.edited.includes(f)) : []
+    edited: Array.isArray(t.edited) ? EDITABLE_FIELDS.filter((f) => t.edited.includes(f)) : [],
+    // null: a track from before the genres, its tags not read for them yet (jobs.mjs)
+    genres: Array.isArray(t.genres) ? splitGenres(t.genres) : null
   }
   if (lossless && out.fakeLossless !== true) out.equivKbps = null
   if (out.fakeLossless === true && out.equivKbps === null) out.fakeLossless = null

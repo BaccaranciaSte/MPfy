@@ -13,7 +13,7 @@ phone() { "$ADB" ${MPFY_PHONE:+-s "$MPFY_PHONE"} "$@"; }
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 # --force-local: a path like C:/... is a file, not a remote host.
-tar --force-local -cf "$tmp/mpfy.tar" package.json package-lock.json server transport
+tar --force-local -cf "$tmp/mpfy.tar" package.json package-lock.json server transport web/js/genres.js
 # adb on Windows wants a Windows path for the archive (cygpath exists only in Git Bash).
 archive="$tmp/mpfy.tar"
 if command -v cygpath >/dev/null; then archive=$(cygpath -m "$archive"); fi

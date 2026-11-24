@@ -5,7 +5,7 @@
 //
 // The facts (F), as the host sends them:
 //   { id, name, size, mtime, addedAt,
-//     tags: { title, artist, album, albumArtist, trackNo, discNo, year },
+//     tags: { title, artist, album, albumArtist, trackNo, discNo, year, genres? },
 //     format, codec, duration, bitrate, sampleRate, bitDepth, coverId,
 //     lyrics: { synced: [[{ t, text }]], texts: [text], lrc: text | null }, was: [id] }
 //
@@ -78,7 +78,8 @@ export function cleanFacts (F) {
       albumArtist: text(tags.albumArtist),
       trackNo: count(tags.trackNo),
       discNo: count(tags.discNo),
-      year: count(tags.year)
+      year: count(tags.year),
+      ...genresOf(tags.genres)
     },
     format: F.format,
     codec: text(F.codec),
@@ -90,6 +91,12 @@ export function cleanFacts (F) {
     lyrics: { synced, texts, lrc },
     was: [...new Set(was)]
   }
+}
+
+// The genre tags as the host read them: strings, at most 16 of 4096 characters; none: no key.
+function genresOf (g) {
+  const list = Array.isArray(g) ? g.filter((s) => typeof s === 'string').slice(0, 16).map((s) => s.slice(0, MAX_TEXT)) : []
+  return list.length > 0 ? { genres: list } : {}
 }
 
 /** The hash of the facts (16 hex): a put of facts with this hash again changes nothing. */
@@ -178,7 +185,9 @@ export function shownLyrics (stored) {
 export function servedText (stored) {
   const out = {}
   for (const k of PUBLIC_FIELDS) out[k] = stored[k] === undefined ? null : stored[k]
-  let s = JSON.stringify(out).slice(0, -1) + ',"qualities":' + NO_QUALITIES
+  let s = JSON.stringify(out).slice(0, -1)
+  if (Array.isArray(stored.genres) && stored.genres.length > 0) s += ',"genres":' + JSON.stringify(stored.genres)
+  s += ',"qualities":' + NO_QUALITIES
   const lyrics = shownLyrics(stored)
   if (lyrics !== null) s += ',"lyrics":"' + lyrics + '"'
   s += ',"mine":false,"others":true'

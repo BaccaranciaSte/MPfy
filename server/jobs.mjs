@@ -272,7 +272,7 @@ export class MediaJobs {
     if (this._closed) return
     const tracks = only !== null ? only : [...this.library.tracks.values()]
     for (const track of tracks) if (track.fpState === 'none') this.requestFingerprint(track, PRIORITY.BACKGROUND)
-    for (const track of tracks) if (track.sampleRate === null || track.tagless === null) this.requestTags(track, PRIORITY.BACKGROUND)
+    for (const track of tracks) if (track.sampleRate === null || track.tagless === null || track.genres === null) this.requestTags(track, PRIORITY.BACKGROUND)
     for (const track of tracks) this.requestQuality(track, PRIORITY.BACKGROUND)
     if (only === null) for (const coverId of this.library.embeddedCoverIds()) this.requestCoverSizes(coverId, PRIORITY.BACKGROUND)
     for (const track of tracks) this._queueLevels(track, PRIORITY.BACKGROUND)
@@ -293,7 +293,7 @@ export class MediaJobs {
 
   /**
    * Queued: the tags of a track from before, re-read for its codec, sample rate
-   * and bit depth and for the fields its file has no tag for.
+   * and bit depth, for the fields its file has no tag for and for its genres.
    */
   requestTags (track, priority = PRIORITY.BACKGROUND) {
     if (this._tagsTried.has(track.id) || !this._originalHere(track)) return
@@ -764,6 +764,10 @@ export class MediaJobs {
       if (tagless) {
         next.tagless = taglessOf(metadata.common, now.coverId)
         next.editedUnknown = true
+        changed = true
+      }
+      if (now.genres === null) {
+        next.genres = fresh.genres
         changed = true
       }
       if (!changed) return

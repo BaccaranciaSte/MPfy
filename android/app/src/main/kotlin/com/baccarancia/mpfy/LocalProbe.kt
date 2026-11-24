@@ -95,6 +95,7 @@ data class Meta(
   val bitDepth: Long?,
   val codec: String?,
   val hasVideo: Boolean,
+  val genre: String? = null,
 )
 
 /** One open file: its bytes, the system's word on it, and what only the platform reads. */
@@ -173,6 +174,8 @@ class FileProbe(private val io: ProbeIo, private val art: ArtSink) : FileReader 
       "title" to meta.title, "artist" to meta.artist, "album" to meta.album, "albumArtist" to meta.albumArtist,
       "trackNo" to meta.trackNo, "discNo" to meta.discNo, "year" to meta.year,
     )
+    // The genre tag as it is: the core cuts it into genres (web/js/genres.js); none, no key.
+    meta.genre?.takeIf { it.isNotBlank() }?.let { t["genres"] = listOf(it) }
     return Probe(
       Probe.Outcome.OK,
       Facts.of(
@@ -307,6 +310,7 @@ class LocalProbe(context: Context) : ProbeIo {
           artist = s(MediaMetadataRetriever.METADATA_KEY_ARTIST),
           album = s(MediaMetadataRetriever.METADATA_KEY_ALBUM),
           albumArtist = s(MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST),
+          genre = s(MediaMetadataRetriever.METADATA_KEY_GENRE),
           trackNo = leadingInt(s(MediaMetadataRetriever.METADATA_KEY_CD_TRACK_NUMBER)),
           discNo = leadingInt(s(MediaMetadataRetriever.METADATA_KEY_DISC_NUMBER)),
           year = year,

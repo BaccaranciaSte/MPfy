@@ -16,6 +16,7 @@
 import b4a from 'b4a'
 import sodium from 'sodium-native'
 import { differentVersions } from './versions.js'
+import { splitGenres } from '../web/js/genres.js'
 
 export const UNKNOWN_ARTIST = 'Artista sconosciuto'
 export const UNKNOWN_ALBUM = 'Album sconosciuto'
@@ -127,7 +128,8 @@ export function trackFromFacts (F) {
     codec: codecOf(F.format, lossless, F.codec),
     sampleRate: typeof F.sampleRate === 'number' && F.sampleRate > 0 ? Math.round(F.sampleRate) : null,
     bitDepth: lossless && typeof F.bitDepth === 'number' && F.bitDepth > 0 ? F.bitDepth : null,
-    tagless: taglessOf(tags, F.coverId)
+    tagless: taglessOf(tags, F.coverId),
+    genres: splitGenres(tags.genres || [])
   }
 }
 

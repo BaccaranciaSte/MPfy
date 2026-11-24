@@ -137,6 +137,7 @@ test('lyrics from the parts equal lyrics from the tags, on every file of the lyr
 const FORMATS = ['mp3', 'aac', 'm4a', 'flac', 'ogg', 'opus', 'wav']
 const CODECS = ['audio/mpeg', 'audio/mp4a-latm', 'audio/alac', 'audio/flac', 'audio/vorbis', 'audio/opus', 'audio/raw', 'ALAC', null, '']
 const TEXTS = [null, '', '  ', 'Mare', ' Ultimo traghetto ', 'Lumen\tMarino', 'riga\nnuova', 'Città di sale', '夜に駆ける', 'a'.repeat(600), '\u0000x\u001f', 'Artista sconosciuto', 'Album sconosciuto']
+const GENRES = [undefined, [], ['J-Pop'], ['Hip-Hop/Rap', 'rap', ''], ['Soundtrack\u0000Musical'], ['  ', '(17)'], ['a'.repeat(60), 'Città pop', '夜', 'Rock', 'Metal', 'Jazz', 'Folk']]
 const NUMBERS = [null, 0, -1, 1, 3, 12, 2019, 1.5, '3', NaN]
 const NAMES = ['01 - Mare.mp3', 'Mare.flac', '.mp3', 'senza estensione', '  spazi  .m4a', '', 'a/b\\c.ogg', 'x\u202e.mp3', 'Artista - Titolo.opus', '03.Traccia 3.wav']
 
@@ -156,7 +157,8 @@ function facts (r, n) {
       albumArtist: pick(r, TEXTS),
       trackNo: pick(r, NUMBERS),
       discNo: pick(r, NUMBERS),
-      year: pick(r, NUMBERS)
+      year: pick(r, NUMBERS),
+      genres: pick(r, GENRES)
     },
     format,
     codec: pick(r, CODECS),
@@ -181,7 +183,8 @@ function metadataOf (F) {
       albumartist: num(F.tags.albumArtist),
       track: { no: F.tags.trackNo, of: null },
       disk: { no: F.tags.discNo, of: null },
-      year: num(F.tags.year)
+      year: num(F.tags.year),
+      genre: F.tags.genres || []
     },
     format: { duration: num(F.duration), bitrate: num(F.bitrate), sampleRate: num(F.sampleRate), bitsPerSample: num(F.bitDepth), codec: num(F.codec) }
   }

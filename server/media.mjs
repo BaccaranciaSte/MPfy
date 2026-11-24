@@ -11,6 +11,7 @@ import { parseFile, selectCover } from 'music-metadata'
 import { AUDIO_FORMATS, COVER_MIME } from './ids.mjs'
 import { codecOf } from './quality.mjs'
 import { writeAtomicSync } from './util.mjs'
+import { splitGenres } from '../web/js/genres.js'
 
 export const HEAD_BYTES = 4096
 export const MAX_COVER_BYTES = 16 * 1024 * 1024
@@ -416,6 +417,7 @@ export function buildTrack ({ id, format, metadata, size, fallbackTitle, coverId
     codec: codecOf(format, lossless, fmt.codec),
     sampleRate,
     bitDepth,
-    tagless: taglessOf(common, coverId)
+    tagless: taglessOf(common, coverId),
+    genres: splitGenres(common.genre || [])
   }
 }
