@@ -31,6 +31,7 @@
 import { store } from './store.js';
 import { absUrl, srcApi } from './api.js';
 import { versionsFor, candidates, coverHref, versionKey, offsetBetween } from './media.js';
+import { gainOf } from './loudness.js';
 import { fingerprints } from './fingerprints.js';
 import { bridgeVersion } from './native.js';
 import { sources } from './sources.js';
@@ -224,6 +225,25 @@ function noteBuffering(buffering) {
  * at its own level: the app finds it by trackId:fileHash:quality).
  */
 const itemInfo = (it) => versionsFor(it.id, { exclude: failedFor(it) });
+
+// "Volume uniforme" (Impostazioni): every song at the same loudness (loudness.js), on unless
+// turned off. Each version of a song is its own file, with its own loudness.
+const VOLNORM_KEY = 'mpfy.volnorm';
+function volumeNorm() {
+  try {
+    return localStorage.getItem(VOLNORM_KEY) !== '0';
+  } catch {
+    return true;
+  }
+}
+/** The volume a version plays at (1: as it is). */
+function gainFor(songId, v) {
+  if (!volumeNorm()) return 1;
+  const song = store.track(songId);
+  const ver = song && Array.isArray(song.versions) ? song.versions.find((x) => x.trackId === v.trackId && x.sourceId === v.sourceId) : null;
+  return gainOf(ver && ver.t ? ver.t.loud : song ? song.loud : null);
+}
+const withGains = (id, versions) => versions.map((v) => ({ ...v, gain: gainFor(id, v) }));
 const infoKey = (info) => `${info.q}|${info.versions.map((v) => `${versionKey(v)}@${v.offsetMs}`).join(',')}`;
 
 /**
@@ -253,6 +273,8 @@ function nativeItem(it, i, liked) {
     quality: info.q || 'max',
     durationMs: Math.round((t.duration || 0) * 1000),
     versions: info.versions.map(({ sourceId, trackId, fileHash, url, offsetMs: off }) => ({ sourceId, trackId, fileHash, url, offsetMs: off })),
+    // The volume of its first version (the app sets it as the song starts).
+    gain: info.versions.length ? gainFor(it.id, info.versions[0]) : 1,
   };
 }
 
@@ -277,7 +299,7 @@ function refreshUpcoming() {
         // The version playing may have left the list (its source went down): its offset is
         // taken against the new first version, the frame of every other offset of the list.
         const first = info.versions[0];
-        backend.setVersions(it.id, info.versions, (x) => (first ? offsetBetween(first.v, x.v) : 0));
+        backend.setVersions(it.id, withGains(it.id, info.versions), (x) => (first ? offsetBetween(first.v, x.v) : 0));
       }
     }
     return;
@@ -394,7 +416,7 @@ function syncQueue({ play, restart = false } = {}) {
     st.quality = null;
     lastSeekAt = performance.now();
     needsLoad = false;
-    if (info.versions.length) backend.load(it.id, info.versions, position, wantPlay);
+    if (info.versions.length) backend.load(it.id, withGains(it.id, info.versions), position, wantPlay);
     else setTimeout(() => handlers.error('nessuna fonte', it.id), 0);
   } else if (play) {
     backend.play();
@@ -1088,6 +1110,29 @@ export const player = {
 
   toggleShuffle() {
     player.setShuffle(!st.shuffle);
+  },
+
+  get volumeNorm() {
+    return volumeNorm();
+  },
+
+  /** What the browser plays at now (the volume times the gain); null in the app. */
+  get outputVolume() {
+    return backend.native ? null : backend.outputVolume;
+  },
+
+  /** "Volume uniforme" on or off: the song playing takes it at once here, in the app from the next. */
+  setVolumeNorm(on) {
+    try {
+      if (on) localStorage.removeItem(VOLNORM_KEY);
+      else localStorage.setItem(VOLNORM_KEY, '0');
+    } catch {
+      /* the default stays */
+    }
+    const it = currentItem();
+    if (it && !backend.native && backend.loadedId === it.id) backend.setVersions(it.id, withGains(it.id, itemInfo(it).versions));
+    else if (it && backend.native) syncQueue();
+    emitChange();
   },
 
   cycleRepeat() {

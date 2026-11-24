@@ -1651,6 +1651,30 @@ async function cardRow(vp) {
   await fetch(`${base}/__mock/reset?sources=2`);
 }
 
+/** "Volume uniforme": a song measured louder than the target plays lower; off, as it is; on again. */
+async function evenVolume(vp) {
+  const { tag } = vpOf(vp);
+  log(`\n== ${tag} the even volume`);
+  await setViewport(vp);
+  await fetch(`${base}/__mock/reset?sources=2`);
+  await go(`${base}/?nosw`, 2000);
+  await evaluate(`localStorage.removeItem('mpfy.volnorm'); return true;`);
+  const on = await evaluate(`const al = [...mpfy.store.d.albums.values()].find((a) => a.name === 'Fari nella nebbia'); mpfy.player.setVolume(1); mpfy.player.playContext({ type: 'album', id: al.id }, al.trackIds, 0); await new Promise((r) => setTimeout(r, 1500)); return { norm: mpfy.player.volumeNorm, out: mpfy.player.outputVolume };`);
+  check(on.norm === true && Math.abs(on.out - 0.5012) < 0.001, `${tag} on by default: a song 6 dB over the target plays at half the amplitude (${JSON.stringify(on)})`);
+  await evaluate(`mpfy.navigate('/impostazioni'); return true;`);
+  await sleep(1500);
+  const row = await evaluate(`const r = document.querySelector('.volnorm-switch'); return r && { text: r.textContent, on: r.getAttribute('aria-checked'), section: r.closest('.set-section').querySelector('.set-section-title').textContent };`);
+  check(!!row && /Volume uniforme/.test(row.text) && /Ogni brano allo stesso volume/.test(row.text) && row.on === 'true' && row.section === 'Qualità audio', `${tag} Impostazioni: "Volume uniforme" in "Qualità audio", on (${JSON.stringify(row)})`);
+  await click('.volnorm-switch');
+  await sleep(600);
+  const off = await evaluate(`return { norm: mpfy.player.volumeNorm, out: mpfy.player.outputVolume, saved: localStorage.getItem('mpfy.volnorm') };`);
+  check(off.norm === false && off.out === 1 && off.saved === '0', `${tag} off: the song playing takes its own volume at once, remembered (${JSON.stringify(off)})`);
+  await click('.volnorm-switch');
+  await sleep(600);
+  const back = await evaluate(`const o = { norm: mpfy.player.volumeNorm, out: mpfy.player.outputVolume }; mpfy.player.pause(); return o;`);
+  check(back.norm === true && Math.abs(back.out - 0.5012) < 0.001, `${tag} on again: lower again (${JSON.stringify(back)})`);
+}
+
 /**
  * The genres: the families in Cerca before the artists, a family's page (its genres as chips,
  * "Tutto" on), a genre's page (its family as a link), Play in order and with "casuale", the
@@ -3172,6 +3196,7 @@ try {
     if (want('details')) await detailsSwitch(vp);
     if (want('card')) await cardRow(vp);
     if (want('genres')) await genres(vp);
+    if (want('volume')) await evenVolume(vp);
     if (want('labels')) await labels(vp);
   }
   // The phone's own music, at a phone's size and a PC's (1280x800).

@@ -522,6 +522,11 @@ export function settingsView() {
       : ph.state === 'off'
         ? row({ ic: 'note', title: "Consenti l'accesso alla musica", sub: 'Per vedere i brani salvati sul telefono', onClick: () => nativeCall('askMusicAccess', 'settings'), chevron: false, cls: 'phone-access' })
         : switchRow({ ic: 'search', title: 'Cerca i dettagli in rete', on: phoneDetails(), onToggle: (v) => store.setSourceDetails(PHONE_ID, v), cls: 'details-switch phone-details' });
+    // The switch shows the player's state as soon as it changed (the page is not drawn again for it).
+    const volRow = switchRow({ ic: 'volume', title: 'Volume uniforme', sub: 'Ogni brano allo stesso volume', on: player.volumeNorm, cls: 'volnorm-switch', onToggle: (v) => {
+      player.setVolumeNorm(v);
+      volRow.setAttribute('aria-checked', String(player.volumeNorm));
+    } });
     put(
       el,
       topBar('Impostazioni'),
@@ -529,7 +534,7 @@ export function settingsView() {
       section('Fonti musicali', ...srcRows),
       phoneRows ? section('Musica del telefono', phoneRows) : null,
       soc ? soc.el : null,
-      section('Qualità audio', qRow),
+      section('Qualità audio', qRow, volRow),
       section('Memoria', ...memoryRows()),
       section('Informazioni', ...info),
       h('p', { class: 'set-foot' }, authorLink('author-link'))

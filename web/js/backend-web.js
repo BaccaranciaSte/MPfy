@@ -125,6 +125,14 @@ export function createWebBackend(h) {
     }
   }
 
+  // The listener's volume times the gain of the version playing ("Volume uniforme", player.js).
+  let userVol = 1;
+  function applyVolume() {
+    const v = list[vi];
+    const g = v && typeof v.gain === 'number' && v.gain > 0 && v.gain <= 1 ? v.gain : 1;
+    audio.volume = Math.min(1, Math.max(0, userVol * g));
+  }
+
   function start(at) {
     gen++;
     const v = list[vi];
@@ -133,6 +141,7 @@ export function createWebBackend(h) {
     pendingSeek = at > 0 ? at : null;
     waitingSince = wantPlay ? performance.now() : 0;
     audio.src = v.url;
+    applyVolume();
     if (wantPlay) playSafe();
     h.version?.(v);
     askQuality(gen, v.url);
@@ -179,6 +188,7 @@ export function createWebBackend(h) {
         list = [{ ...cur, offsetMs: offsetOf ? offsetOf(cur) : cur.offsetMs }, ...versions];
         vi = 0;
       }
+      applyVolume();
     },
     play() {
       wantPlay = true;
@@ -193,8 +203,13 @@ export function createWebBackend(h) {
       if (audio.readyState >= 1) audio.currentTime = sec;
       else pendingSeek = sec;
     },
+    /** The volume the element plays at: the listener's times the version's gain. */
+    get outputVolume() {
+      return audio.volume;
+    },
     setVolume(v) {
-      audio.volume = Math.min(1, Math.max(0, v));
+      userVol = Math.min(1, Math.max(0, v));
+      applyVolume();
     },
     setRepeat() {
       /* handled by player.js on "ended" */

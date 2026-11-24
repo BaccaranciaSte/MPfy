@@ -6,7 +6,7 @@
 // came from ('tag' or 'scan'). ReplayGain gains are against -18 LUFS, R128 gains (Q7.8 dB) against
 // -23 LUFS. Portable: the source, the phone's core and the page use it alike.
 
-/** The loudness every song plays at (Spotify's "normal"). */
+/** The loudness every song plays at (the usual level of the streaming services). */
 export const TARGET_LUFS = -14
 
 const fin = (v) => typeof v === 'number' && Number.isFinite(v)

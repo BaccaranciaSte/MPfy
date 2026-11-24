@@ -156,6 +156,9 @@ class PlaybackService : MediaLibraryService() {
           }
           if (events.containsAny(Player.EVENT_MEDIA_ITEM_TRANSITION, Player.EVENT_TIMELINE_CHANGED, Player.EVENT_MEDIA_METADATA_CHANGED)) {
             updateHeart()
+            // "Volume uniforme": the song playing at its own volume.
+            val g = Playback.gainOf(p.currentMediaItem)
+            if (p.volume != g) p.volume = g
           }
           if (events.containsAny(Player.EVENT_IS_PLAYING_CHANGED, Player.EVENT_MEDIA_ITEM_TRANSITION)) activity.update(activityOf(p))
           if (events.contains(Player.EVENT_IS_PLAYING_CHANGED)) chats.update()

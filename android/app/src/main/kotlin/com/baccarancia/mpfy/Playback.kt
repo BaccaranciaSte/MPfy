@@ -24,6 +24,8 @@ object Playback {
   // In MediaMetadata.extras, the only extras every item path keeps (buildUpon, Playback.build):
   // the like state of the song's group and the context it was queued from.
   private const val EXTRA_LIKED = "mpfy.liked"
+  // The volume the item plays at, 0..1 ("Volume uniforme", web/js/loudness.js).
+  private const val EXTRA_GAIN = "mpfy.gain"
   private const val EXTRA_LIKED_IDS = "mpfy.likedIds"
   private const val EXTRA_CTX = "mpfy.ctx"
   private const val QUEUE_FILE = "last-queue.json"
@@ -116,6 +118,7 @@ object Playback {
     val meta = metadata(
       o.optString("title"), o.optString("artist"), o.optString("album"), o.optString("albumArtist").ifEmpty { null }, trackNo,
       o.optLong("durationMs", 0), artworkOf(o.optString("artworkUrl")), o.optBoolean("liked", false), likedIds, ctx,
+      gain = o.optDouble("gain", 1.0).takeIf { it.isFinite() && it > 0.0 && it <= 1.0 }?.toFloat() ?: 1f,
     )
     val versions = VersionOrder.order(versionsOf(o, id), Downloads.completedKeys)
     return build(id, q, meta, versions, emptySet(), register)
@@ -133,6 +136,7 @@ object Playback {
     liked: Boolean,
     likedIds: List<String>,
     ctx: QueueCtx?,
+    gain: Float = 1f,
   ): MediaMetadata {
     val b = MediaMetadata.Builder()
       .setTitle(title)
@@ -144,16 +148,20 @@ object Playback {
       .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
       .setIsPlayable(true)
       .setIsBrowsable(false)
-      .setExtras(extrasOf(liked, likedIds, ctx))
+      .setExtras(extrasOf(liked, likedIds, ctx, gain))
     if (durationMs > 0) b.setDurationMs(durationMs)
     return b.build()
   }
 
-  private fun extrasOf(liked: Boolean, likedIds: List<String>, ctx: QueueCtx?) = Bundle().apply {
+  private fun extrasOf(liked: Boolean, likedIds: List<String>, ctx: QueueCtx?, gain: Float = 1f) = Bundle().apply {
     putBoolean(EXTRA_LIKED, liked)
     putStringArrayList(EXTRA_LIKED_IDS, ArrayList(likedIds))
     if (ctx != null) putString(EXTRA_CTX, ctx.toJson())
+    if (gain < 1f) putFloat(EXTRA_GAIN, gain)
   }
+
+  /** The volume an item plays at (1: as it is). */
+  fun gainOf(item: MediaItem?): Float = item?.mediaMetadata?.extras?.getFloat(EXTRA_GAIN, 1f)?.takeIf { it > 0f && it <= 1f } ?: 1f
 
   fun likedOf(item: MediaItem): Boolean = item.mediaMetadata.extras?.getBoolean(EXTRA_LIKED, false) == true
 
