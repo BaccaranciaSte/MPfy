@@ -20,7 +20,7 @@ const ALBUM = '0a1b2c3d4e5f6071'
 const FOREIGN = 'f0'.repeat(12)
 
 async function start (t, dir) {
-  return cleanup(t).close(await createMPfy({ dataDir: dir, port: 0, adminPort: 0, p2p: false, debounceMs: 10, ffmpeg: null, fpcalc: null, sevenZip: null, whoIs: testWhoIs }))
+  return cleanup(t).close(await createMPfy({ dataDir: dir, port: 0, adminPort: 0, p2p: false, debounceMs: 10, ffmpeg: null, fpcalc: null, sevenZip: null, whoIs: testWhoIs, backgroundDelayMs: 600000 }))
 }
 
 // A data dir as the server before profiles leaves it.
@@ -78,6 +78,8 @@ function personOf (dir, key) {
   return data
 }
 
+// The background jobs wait 10 min (start): what is checked is the library as migrated, before the
+// tags job reads the files again.
 function checkMigrated (dir, { id, key, covers }) {
   // db.json stays as the older app wrote it (it still finds its data there); the
   // library lives in library.log.
