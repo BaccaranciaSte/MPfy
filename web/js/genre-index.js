@@ -36,13 +36,16 @@ function genresOfSong(song) {
 }
 
 const num = (v) => (typeof v === 'number' && v > 0 ? v : 1e9);
+// By the names the files sort them under (the sort tags) when they have them.
+const sortOf = (t, k) => (t.sort && t.sort[k]) || null;
+const artistKey = (t) => sortOf(t, 'albumArtist') || (t.albumArtist && t.albumArtist !== t.artist ? t.albumArtist : sortOf(t, 'artist')) || t.albumArtist || t.artist || '';
 function inOrder(a, b) {
   return (
-    cmpText(a.albumArtist || a.artist || '', b.albumArtist || b.artist || '') ||
-    cmpText(a.album || '', b.album || '') ||
+    cmpText(artistKey(a), artistKey(b)) ||
+    cmpText(sortOf(a, 'album') || a.album || '', sortOf(b, 'album') || b.album || '') ||
     num(a.discNo) - num(b.discNo) ||
     num(a.trackNo) - num(b.trackNo) ||
-    cmpText(a.title || '', b.title || '')
+    cmpText(sortOf(a, 'title') || a.title || '', sortOf(b, 'title') || b.title || '')
   );
 }
 

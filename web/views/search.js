@@ -10,7 +10,7 @@ import { icon } from '../icons/icons.js';
 import { store } from '../js/store.js';
 import { player } from '../js/player.js';
 import { replaceQuery } from '../js/router.js';
-import { norm, cmpText, debounce } from '../js/util.js';
+import { norm, cmpText, bySortName, debounce } from '../js/util.js';
 import { dominantColor, cachedColor, nameColor, css } from '../js/color.js';
 import { coverEl, specs } from '../components/cover.js';
 import { card, shelf, playCtxButton } from '../components/cards.js';
@@ -182,7 +182,7 @@ export function searchView(query) {
   function parts() {
     const d = store.d;
     if (!q.trim()) {
-      const artists = [...d.artists.values()].sort((a, b) => cmpText(a.name, b.name));
+      const artists = [...d.artists.values()].sort(bySortName);
       if (!artists.length) {
         const words = store.loaded ? 'La tua libreria è vuota' : 'Caricamento...';
         return [{ key: 'none', sig: words, build: () => h('p', { class: 'empty-small' }, words) }];

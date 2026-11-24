@@ -16,7 +16,7 @@ import { icon } from '../icons/icons.js';
 import { store } from '../js/store.js';
 import { player } from '../js/player.js';
 import { LIKED_NAME, LIBRARY_NAME } from '../js/contexts.js';
-import { cmpText, ctxKey, lsGet, lsSet, nBrani } from '../js/util.js';
+import { cmpText, bySortName, ctxKey, lsGet, lsSet, nBrani } from '../js/util.js';
 import { vlist } from '../js/vlist.js';
 import { coverEl, specs } from './cover.js';
 import { trackRow, trackRowPresses, markRow, markPlayCtx, refreshAllMarks } from './track-row.js';
@@ -198,7 +198,7 @@ export function libraryPanel({ compact = false, scroller = null } = {}) {
 
   /** Sort key helpers: recency of play, recency of addition, name. */
   function sortEntries(entries) {
-    if (sort === 'alpha') return entries.sort((a, b) => cmpText(a.name, b.name));
+    if (sort === 'alpha') return entries.sort(bySortName);
     if (sort === 'added') return entries.sort((a, b) => b.added - a.added || cmpText(a.name, b.name));
     return entries.sort((a, b) => b.played - a.played || b.added - a.added || cmpText(a.name, b.name));
   }
@@ -222,13 +222,13 @@ export function libraryPanel({ compact = false, scroller = null } = {}) {
           const at = d.trackLastPlayed.get(id) || 0;
           if (at > played) played = at;
         }
-        out.push({ ctx, name: ar.name, sub: ['Artista'], cover: specs.artist(ar), round: true, href: `/artist/${ar.id}`, played, added: ar.addedAt });
+        out.push({ ctx, name: ar.name, sortName: ar.sortName, sub: ['Artista'], cover: specs.artist(ar), round: true, href: `/artist/${ar.id}`, played, added: ar.addedAt });
       }
     }
     if (!filter || filter === 'album') {
       for (const al of d.albums.values()) {
         const ctx = { type: 'album', id: al.id };
-        out.push({ ctx, name: al.name, sub: ['Album', al.artist], cover: specs.album(al), href: `/album/${al.id}`, played: lp.get(ctxKey(ctx)) || 0, added: al.addedAt });
+        out.push({ ctx, name: al.name, sortName: al.sortName, sub: ['Album', al.artist], cover: specs.album(al), href: `/album/${al.id}`, played: lp.get(ctxKey(ctx)) || 0, added: al.addedAt });
       }
     }
     return sortEntries(out);

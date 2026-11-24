@@ -99,6 +99,8 @@ export function shuffleInPlace(a) {
 
 const collator = new Intl.Collator('it', { sensitivity: 'base', numeric: true });
 export const cmpText = (a, b) => collator.compare(a ?? '', b ?? '');
+/** Two albums or artists by the name their files sort them under (the sort tags), else their name. */
+export const bySortName = (a, b) => collator.compare(a.sortName || a.name || '', b.sortName || b.name || '') || cmpText(a.name, b.name);
 
 /** "type:id" key of a play context ({ type, id }). */
 export const ctxKey = (ctx) => (ctx ? `${ctx.type}:${ctx.id ?? ''}` : '');

@@ -28,7 +28,7 @@ import { native, nativeCall, nativeJson, bridgeVersion } from './native.js';
 import { candidates, awayNow } from './media.js';
 import { orderVersions, signatureOffset, offsetMs, byConnection } from './songs.js';
 import { artistTrackIds, contextTracks, homeContexts } from './contexts.js';
-import { cmpText, debounce } from './util.js';
+import { cmpText, bySortName, debounce } from './util.js';
 
 export const MAX_TRACKS = 20000;
 export const MAX_BYTES = 4 * 1024 * 1024;
@@ -92,7 +92,7 @@ function trackOf(t, d, level) {
 
 function albumsOf(d, only) {
   const albums = [];
-  for (const al of [...d.albums.values()].sort((a, b) => cmpText(a.name, b.name))) {
+  for (const al of [...d.albums.values()].sort(bySortName)) {
     const tr = only(al.trackIds);
     if (tr.length) albums.push({ id: al.id, n: al.name, a: al.artist, y: al.year || null, art: artOf(al.cover), tr });
   }
@@ -101,7 +101,7 @@ function albumsOf(d, only) {
 
 function artistsOf(d, only) {
   const artists = [];
-  for (const ar of [...d.artists.values()].sort((a, b) => cmpText(a.name, b.name))) {
+  for (const ar of [...d.artists.values()].sort(bySortName)) {
     const tr = only(artistTrackIds(ar.id));
     if (tr.length) artists.push({ id: ar.id, n: ar.name, art: artOf(ar.cover), tr });
   }

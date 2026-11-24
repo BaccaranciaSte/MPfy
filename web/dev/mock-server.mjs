@@ -461,6 +461,8 @@ function buildCatalog() {
         ...(CATALOG_GENRES[ai] ? { genres: CATALOG_GENRES[ai] } : {}),
         // The first album measured 6 dB over the target: it plays at half the amplitude.
         ...(ai === 0 ? { loud: { lufs: -8, peak: -0.5, album: null, from: 'scan' } } : {}),
+        // Sorted without its article, as the sort tags do.
+        ...(a.artist === 'Gli Scogli' ? { sort: { artist: 'Scogli' } } : {}),
         trackNo: ti + 1,
         discNo: 1,
         year: a.year,

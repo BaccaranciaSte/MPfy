@@ -639,6 +639,8 @@ export class Union {
     else this._setContrib(`1|${id}`, null);
     al.cover = custom ? { id: custom.c.large, small: custom.c.small } : embedded ? { id: embedded, small: embedded } : null;
     al.coverId = al.cover?.small || null;
+    // The name its files sort it under (the album sort tag of the first song that has one).
+    al.sortName = rec.sorted.map((s) => s.sort && s.sort.album).find(Boolean) || null;
     d.albums.set(id, al);
   }
 
@@ -665,6 +667,7 @@ export class Union {
     ar.albumIds.sort((a, b) => (d.albums.get(b).year || 0) - (d.albums.get(a).year || 0) || cmpText(d.albums.get(a).name, d.albums.get(b).name));
     ar.cover = ar.albumIds.map((x) => d.albums.get(x).cover).find(Boolean) || null;
     ar.coverId = ar.cover?.small || null;
+    ar.sortName = rec.members.map((s) => s.sort && s.sort.artist).find(Boolean) || null;
     d.artists.set(id, ar);
   }
 

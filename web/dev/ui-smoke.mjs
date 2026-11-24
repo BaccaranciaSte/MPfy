@@ -1688,6 +1688,8 @@ async function genres(vp) {
   await go(`${base}/search?nosw`, 2000);
   const fams = await evaluate(`return { names: [...document.querySelectorAll('.view-search .genre-card .browse-name')].map((x) => x.textContent), titles: [...document.querySelectorAll('.view-search .section-title')].map((x) => x.textContent) };`);
   check(JSON.stringify(fams.names) === JSON.stringify(['Pop', 'Hip hop e rap', 'Elettronica e dance', 'Colonne sonore e musical']) && JSON.stringify(fams.titles.slice(0, 2)) === JSON.stringify(['Sfoglia tutto', 'Artisti']), `${tag} Cerca: the families with songs, in their order, then "Artisti" (${JSON.stringify(fams)})`);
+  const order = await evaluate(`return [...document.querySelectorAll('.view-search .browse-card:not(.genre-card) .browse-name')].map((x) => x.textContent);`);
+  check(order.indexOf('Gli Scogli') > order.indexOf('Orsa Minore') && order.indexOf('Orsa Minore') >= 0, `${tag} the artists by their sort name: "Gli Scogli" sorted as "Scogli" (${JSON.stringify(order)})`);
   await shot(`${tag}-genres-browse`);
   await overflowCheck(`${tag} genres browse`);
   await click('.view-search .genre-card');
