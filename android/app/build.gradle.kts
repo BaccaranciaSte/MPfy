@@ -11,8 +11,8 @@ android {
     applicationId = "com.baccarancia.mpfy"
     minSdk = 29
     targetSdk = 36
-    versionCode = 11
-    versionName = "1.0.1"
+    versionCode = 12
+    versionName = "1.1.0"
     // The phones are arm64 and the worklet's addons are linked for android-arm64 only. This also
     // drops the other three ABIs of libbare-kit.so that the AAR carries.
     ndk { abiFilters += "arm64-v8a" }
