@@ -1362,7 +1362,7 @@ async function versionsMoving(vp) {
     await go(`${base}/?nosw&from=versions`, 2500);
     const songOf = (sameFile) => evaluate(`const t = mpfy.store.lib.tracks.find((x) => { const v = mpfy.store.versions(x.id); return v.length === 2 && (v[0].fileHash === v[1].fileHash) === ${sameFile}; }); return t ? t.id : null;`);
     const play = (id) => evaluate(`mpfy.player.playContext({ type: 'library', id: null, name: 'Libreria' }, [${JSON.stringify(id)}], 0); return true;`);
-    const errorNow = () => evaluate(`const a = window.__audios[window.__audios.length - 1]; a.dispatchEvent(new Event('error')); return true;`);
+    const errorNow = () => evaluate(`const a = mpfy.player.audioElement; a.dispatchEvent(new Event('error')); return true;`);
 
     // The same file on both: the VPS down at the start, so the song plays from the Mi A2. The VPS
     // comes back and goes first in the new order; then the Mi A2's version fails.
@@ -1390,14 +1390,14 @@ async function versionsMoving(vp) {
     await sleep(2800);
     await evaluate(`mpfy.player.pause(); return true;`);
     await sleep(300);
-    const x = await evaluate(`return { src: mpfy.player.state.source, t: window.__audios[window.__audios.length - 1].currentTime };`);
+    const x = await evaluate(`return { src: mpfy.player.state.source, t: mpfy.player.audioElement.currentTime };`);
     const other = x.src === mi.id ? vps.id : mi.id;
     await fetch(`${base}/__mock/offline?source=${x.src}&on=1`);
     await evaluate(`await mpfy.sources.refresh(); return true;`);
     await sleep(1700);
     if ((await evaluate(`return mpfy.player.state.source;`)) === x.src) await errorNow();
     await sleep(1800);
-    const y = await evaluate(`return { src: mpfy.player.state.source, t: window.__audios[window.__audios.length - 1].currentTime };`);
+    const y = await evaluate(`return { src: mpfy.player.state.source, t: mpfy.player.audioElement.currentTime };`);
     const want = x.src === mi.id ? 0.371 : -0.371; // the copy on the VPS is later
     check(y.src === other && Math.abs(y.t - x.t - want) < 0.03, `${tag} the version playing lost its source, then failed: the other file starts at the same moment (${x.t.toFixed(3)} s on ${x.src} -> ${y.t.toFixed(3)} s on ${y.src}, want ${want > 0 ? '+' : ''}${want})`);
     await fetch(`${base}/__mock/offline?source=${x.src}&on=0`);
@@ -1649,6 +1649,27 @@ async function cardRow(vp) {
   r = await at('use', 'member');
   check(r === null, `${tag} a member: no row (${JSON.stringify(r)})`);
   await fetch(`${base}/__mock/reset?sources=2`);
+}
+
+/** Gapless in the browser: the next song loads in the spare element near the end, and goes on from it. */
+async function gapless(vp) {
+  const { tag } = vpOf(vp);
+  log(`\n== ${tag} gapless`);
+  await setViewport(vp);
+  await fetch(`${base}/__mock/reset?sources=2`);
+  await go(`${base}/?nosw`, 2000);
+  const r = await evaluate(`const al = [...mpfy.store.d.albums.values()].find((a) => a.name === 'Fari nella nebbia');
+    mpfy.player.playContext({ type: 'album', id: al.id }, al.trackIds, 0);
+    await new Promise((res) => setTimeout(res, 1500));
+    const before = mpfy.player.gaplessSwaps;
+    const d = mpfy.player.state.duration;
+    mpfy.player.seek(d - 4);
+    await new Promise((res) => setTimeout(res, 7000));
+    const s = mpfy.player.state;
+    const out = { before, swaps: mpfy.player.gaplessSwaps, index: s.index, playing: s.playing, at: Math.round(s.position), title: mpfy.store.track(s.items[s.index].id).title };
+    mpfy.player.pause();
+    return out;`);
+  check(r.before === 0 && r.swaps === 1 && r.index === 1 && r.playing && r.title === 'Il guardiano del faro', `${tag} the end of a song: the next one was ready and goes on from it (${JSON.stringify(r)})`);
 }
 
 /** "Volume uniforme": a song measured louder than the target plays lower; off, as it is; on again. */
@@ -3207,6 +3228,7 @@ try {
     if (want('card')) await cardRow(vp);
     if (want('genres')) await genres(vp);
     if (want('volume')) await evenVolume(vp);
+    if (want('gapless')) await gapless(vp);
     if (want('labels')) await labels(vp);
   }
   // The phone's own music, at a phone's size and a PC's (1280x800).

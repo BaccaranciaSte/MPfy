@@ -1,5 +1,5 @@
-// Web player backend: one HTMLAudioElement. It plays one queue item at a time; player.js decides
-// what comes next. Lock screen and Bluetooth controls go through navigator.mediaSession
+// Web player backend: one HTMLAudioElement playing, a second one ready with what comes next. It
+// plays one queue item at a time; player.js decides what comes next and names it (preload). Lock screen and Bluetooth controls go through navigator.mediaSession
 // (player.js). The level a source served is read from X-MPfy-Quality with a HEAD on the same URL.
 //
 // An item comes with its versions (the same song on several sources), in the order to try them.
@@ -8,12 +8,22 @@
 // position minus the old version's offset plus the new one's (offsets in ms against the first
 // version of the list; 0 for the same file). Only when every version was tried does the player
 // hear about it, and it learns which ones were (tried).
+//
+// Gapless, nearly: the last PRELOAD_S of a song the next item's first version loads in the spare
+// element; when that item is loaded from its start the two elements swap and it plays at once,
+// with nothing to fetch or decode. Only the element playing is heard from.
 
 const STALL_MS = 4000;
+const PRELOAD_S = 30;
 
 export function createWebBackend(h) {
-  const audio = new Audio();
+  let audio = new Audio();
   audio.preload = 'auto';
+  let spare = new Audio();
+  spare.preload = 'auto';
+  let want = null; // the next item player.js named: { id, version }
+  let spareFor = null; // what the spare holds: { id, key }
+  let swaps = 0;
   let loadedId = null;
   let list = []; // versions of the loaded item: [{ url, sourceId, trackId, fileHash, offsetMs }]
   let vi = 0; // the version playing
@@ -32,8 +42,11 @@ export function createWebBackend(h) {
   // asked is the one to report, not a jump back to the start.
   const position = () => (pendingSeek != null ? pendingSeek : audio.currentTime);
   const time = () => h.time(position(), audio.duration);
-  const on = (ev, fn) => audio.addEventListener(ev, fn);
+  const on = (ev, fn) => {
+    for (const el of [audio, spare]) el.addEventListener(ev, (e) => e.target === audio && fn(e));
+  };
   on('timeupdate', () => {
+    fillSpare();
     // Progress: the music moves (a position not yet applied, or a seek under way, is not).
     if (pendingSeek == null && !audio.seeking && audio.currentTime !== lastPos) {
       lastPos = audio.currentTime;
@@ -83,6 +96,19 @@ export function createWebBackend(h) {
   }, 500);
 
   const keyOf = (v) => `${v.sourceId}:${v.trackId}:${v.fileHash}`;
+
+  /** The next item into the spare element, once the song playing is in its last PRELOAD_S. */
+  function fillSpare() {
+    if (!want || (spareFor && spareFor.id === want.id && spareFor.key === keyOf(want.version))) return;
+    const left = audio.duration - audio.currentTime;
+    if (!Number.isFinite(left) || left > PRELOAD_S) return;
+    spareFor = { id: want.id, key: keyOf(want.version) };
+    spare.src = want.version.url;
+    spare.load();
+  }
+
+  /** The spare holds this item's first version, ready to play from its start. */
+  const spareReady = (id, v) => !!spareFor && spareFor.id === id && spareFor.key === keyOf(v) && spare.readyState >= 2 && !spare.error;
   /** The first version of the list not loaded yet for this item (wherever the order put it). */
   const nextUntried = () => list.findIndex((v) => !tried.has(keyOf(v)));
 
@@ -164,12 +190,51 @@ export function createWebBackend(h) {
       return list.filter((v) => tried.has(keyOf(v)));
     },
     load(id, versions, at, play) {
+      const swap = !(at > 0) && versions.length > 0 && spareReady(id, versions[0]);
       loadedId = id;
       list = versions.slice();
       vi = 0;
       tried = new Set();
       wantPlay = !!play;
-      start(at);
+      if (!swap) return start(at);
+      // The next song is ready in the spare: the two swap, the old one is let go.
+      const old = audio;
+      audio = spare;
+      spare = old;
+      spareFor = null;
+      old.pause();
+      old.removeAttribute('src');
+      old.load();
+      swaps++;
+      gen++;
+      const v = list[0];
+      tried.add(keyOf(v));
+      lastPos = 0;
+      pendingSeek = null;
+      waitingSince = wantPlay ? performance.now() : 0;
+      applyVolume();
+      if (wantPlay) playSafe();
+      h.version?.(v);
+      askQuality(gen, v.url);
+      time();
+    },
+    /** The element playing (the spare is the other). */
+    get element() {
+      return audio;
+    },
+    /** How many songs started from the spare (gapless). */
+    get swaps() {
+      return swaps;
+    },
+    /** What comes after the item playing (its versions in order); null: nothing. */
+    preload(id, versions) {
+      want = id && versions && versions.length ? { id, version: versions[0] } : null;
+      if (!want && spareFor) {
+        spareFor = null;
+        spare.removeAttribute('src');
+        spare.load();
+      }
+      fillSpare();
     },
     /**
      * New order or offsets for the item playing (a source came or went, the fingerprints
@@ -220,6 +285,10 @@ export function createWebBackend(h) {
       audio.pause();
       audio.removeAttribute('src');
       audio.load();
+      want = null;
+      spareFor = null;
+      spare.removeAttribute('src');
+      spare.load();
       loadedId = null;
       list = [];
       tried = new Set();

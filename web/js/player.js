@@ -244,6 +244,15 @@ function gainFor(songId, v) {
   return gainOf(ver && ver.t ? ver.t.loud : song ? song.loud : null);
 }
 const withGains = (id, versions) => versions.map((v) => ({ ...v, gain: gainFor(id, v) }));
+
+/** The browser's player readies what plays after the item playing (gapless, backend-web.js). */
+function preloadNext() {
+  if (backend.native || typeof backend.preload !== 'function') return;
+  const i = st.index >= 0 ? nextPlayable(st.index) : -1;
+  const it = i >= 0 && i !== st.index ? st.items[i] : null;
+  const versions = it ? itemInfo(it).versions : [];
+  backend.preload(it ? it.id : null, versions.length ? withGains(it.id, versions) : null);
+}
 const infoKey = (info) => `${info.q}|${info.versions.map((v) => `${versionKey(v)}@${v.offsetMs}`).join(',')}`;
 
 /**
@@ -421,6 +430,8 @@ function syncQueue({ play, restart = false } = {}) {
   } else if (play) {
     backend.play();
   }
+  // What plays next, ready in the browser (after a change of the queue too).
+  preloadNext();
 }
 
 /**
@@ -1110,6 +1121,16 @@ export const player = {
 
   toggleShuffle() {
     player.setShuffle(!st.shuffle);
+  },
+
+  /** The browser's element playing now; null in the app. */
+  get audioElement() {
+    return backend.native ? null : backend.element;
+  },
+
+  /** The times the browser went on to a song already loaded (gapless); null in the app. */
+  get gaplessSwaps() {
+    return backend.native ? null : backend.swaps;
   },
 
   get volumeNorm() {
