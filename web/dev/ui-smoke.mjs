@@ -3016,12 +3016,15 @@ async function phoneMusic(vp) {
   await sleep(700);
   const lo = own[40];
   const loAl = await evaluate(`return mpfy.store.d.albumOf.get('${lo}');`);
+  const putsBefore = (await mstate()).phone.shadow.puts.length;
   await go(`${base}/album/${loAl}?nosw`, 1800);
   const lm = await menuOf(lo);
   check(/Disponibile su:Locale: MP3/.test(lm) && !/Modifica informazioni|Cambia copertina|Commenti|Elimina da/.test(lm), `${tag} a local-only song: no "Modifica informazioni", no "Cambia copertina", no "Commenti" (${lm})`);
   // The core is told which of the phone's songs a real source holds: the whole set once, then
   // what moved (the source's copy deleted: that song is the phone's alone now).
-  // (Each page load is a start: it tells the whole set once.)
+  // (Each page load is a start: it tells the whole set once. That of this page is waited for: a
+  // slower load tells it after the delete, rightly whole.)
+  for (let i = 0; i < 40 && (await mstate()).phone.shadow.puts.length <= putsBefore; i++) await sleep(250);
   st = await mstate();
   const sh1 = st.phone.shadow;
   await evaluate(`await mpfy.store.deleteVersion('${S2}', '${mi.id}'); return true;`);
