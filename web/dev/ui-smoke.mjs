@@ -262,7 +262,7 @@ async function run(vp) {
   const author = await evaluate(`return [...document.querySelectorAll('a.author-link')].map((a) => [a.textContent, a.getAttribute('href'), a.target, a.rel].join(' '));`);
   check(author.length === 1 && author[0] === 'By Baccarancia https://baccarancia.com _blank noopener noreferrer' && !!(await evaluate(`return document.querySelector('.set-foot a.author-link') !== null;`)), `${tag} By Baccarancia once, at the bottom: ${JSON.stringify(author)}`);
   const infoRows = await evaluate(`return [...document.querySelectorAll('.set-section:last-of-type .set-row')].map((r) => r.textContent);`);
-  check(infoRows.length === 2 && /^MPfyVersione \d+\.\d+\.\d+$/.test(infoRows[0]) && infoRows[1] === 'MessaggiCifrati: le fonti vedono chi scrive a chi e quando, non cosa.', `${tag} settings: the app version under Informazioni, then "Messaggi" and what the sources see: ${JSON.stringify(infoRows)}`);
+  check(infoRows.length === 2 && /^MPfyVersione \d+\.\d+\.\d+$/.test(infoRows[0]) && infoRows[1] === 'MessaggiCifrati, le fonti vedono chi scrive a chi e quando, non cosa.', `${tag} settings: the app version under Informazioni, then "Messaggi" and what the sources see: ${JSON.stringify(infoRows)}`);
   await overflowCheck(`${tag} settings`);
   await shot(`${tag}-settings`);
   log(`   small targets: ${JSON.stringify(await smallTargets())}`);
@@ -1006,7 +1006,7 @@ async function profilePages(vp) {
   await fetch(`${base}/__mock/core?syncMs=0`);
   await go(`${base}/impostazioni/profilo?nosw`, 1500);
   const rows = await text('.set-title-text');
-  check(rows === 'Nome | Codice del profilo | Esporta profilo | Recupero con password' && (await text('.set-note')) === "Contiene l'accesso alle tue fonti: tienilo per te." && (await text('.set-top-title')) === 'Profilo', `${tag} Profilo: ${rows}`);
+  check(rows === 'Nome | Codice del profilo | Esporta profilo | Recupero con password' && (await text('.set-note')) === "Chi ha questo codice entra nelle tue fonti come te. Passalo solo ai tuoi dispositivi." && (await text('.set-top-title')) === 'Profilo', `${tag} Profilo: ${rows}`);
   check((await text('.set-row .set-sub')) === 'Bacca B | Disattivato', `${tag} Profilo subs: ${await text('.set-row .set-sub')}`);
   await overflowCheck(`${tag} profile`);
   await shot(`${tag}-profile`);
@@ -1133,7 +1133,7 @@ async function roles(vp) {
   await sleep(600);
   await click('.layer-sheet .menu-item', 'Elimina da VPS prova');
   await sleep(500);
-  check((await text('.layer-dialog .dialog-text')) === 'Resta su VPS prova: è anche di altri.', `${tag} a member's track that others own too: "Resta su VPS prova: è anche di altri."`);
+  check((await text('.layer-dialog .dialog-text')) === 'Resta su VPS prova, è anche di altri.', `${tag} a member's track that others own too: "Resta su VPS prova, è anche di altri."`);
   await shot(`${tag}-delete-claim`);
   const t0 = await toastsNow();
   await click('.layer-dialog .btn-danger');
@@ -2715,7 +2715,7 @@ async function chats(vp) {
 
   // ---- Informazioni ----
   await go(`${base}/impostazioni?nosw`, 1500);
-  check((await evaluate(`const r = document.querySelector('.info-messages'); return r && r.querySelector('.set-title-text').textContent + '/' + r.querySelector('.set-sub').textContent + '/' + !!r.querySelector('.ic-lock');`)) === 'Messaggi/Cifrati: le fonti vedono chi scrive a chi e quando, non cosa./true', `${tag} Informazioni: "Messaggi" with the lock and what the sources see`);
+  check((await evaluate(`const r = document.querySelector('.info-messages'); return r && r.querySelector('.set-title-text').textContent + '/' + r.querySelector('.set-sub').textContent + '/' + !!r.querySelector('.ic-lock');`)) === 'Messaggi/Cifrati, le fonti vedono chi scrive a chi e quando, non cosa./true', `${tag} Informazioni: "Messaggi" with the lock and what the sources see`);
 
   // ---- the app (bridge 6): the notification switch, chatSeen, #chat= ----
   if (mobile) {

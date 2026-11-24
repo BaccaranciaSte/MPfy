@@ -12,7 +12,7 @@ export function storageState(view) {
   const f = view.found.find((x) => x.usable) || view.found[0] || null;
   if (!c) {
     if (!f) return null;
-    if (f.why === 'other_source') return { sub: "Di un'altra fonte MPfy: non si può usare", tap: null };
+    if (f.why === 'other_source') return { sub: "Di un'altra fonte MPfy, non si può usare", tap: null };
     if (!f.usable) return { sub: f.why === 'read_only' ? 'In sola lettura' : 'La fonte non può scrivere sulla scheda', tap: null };
     return { sub: `${fmtSize(f.freeBytes)} liberi. Tocca per usarla per la musica`, tap: 'use', found: f };
   }
@@ -20,9 +20,9 @@ export function storageState(view) {
   if (c.state === 'unconfigured') return { sub: 'Scheda non configurata', tap: f && f.usable ? 'use' : 'away', found: f, danger: true };
   if (c.state === 'away' || c.state === 'pending') return { sub: `Non trovata: ${fmtInt(c.awayTracks)} brani non disponibili`, tap: 'away', danger: true };
   if (c.leaving) return { sub: moving ? `Riporto la musica nella memoria interna: ${moving}` : 'Riporto la musica nella memoria interna', tap: null };
-  if (c.bad) return { sub: 'La scheda non conserva bene i dati: la musica resta nella memoria interna', tap: 'inUse' };
-  if (c.state === 'readonly') return { sub: 'In sola lettura: la musica nuova va nella memoria interna', tap: 'inUse' };
-  if (c.full) return { sub: 'Piena: la musica nuova va nella memoria interna', tap: 'inUse' };
+  if (c.bad) return { sub: 'La scheda non conserva bene i dati, la musica resta nella memoria interna', tap: 'inUse' };
+  if (c.state === 'readonly') return { sub: 'In sola lettura, la musica nuova va nella memoria interna', tap: 'inUse' };
+  if (c.full) return { sub: 'Piena, la musica nuova va nella memoria interna', tap: 'inUse' };
   if (moving) return { sub: `In uso, sposto la musica: ${moving}`, tap: 'inUse' };
   return { sub: `In uso, ${fmtSize(c.freeBytes)} liberi`, tap: 'inUse' };
 }

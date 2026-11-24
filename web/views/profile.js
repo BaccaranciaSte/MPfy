@@ -141,7 +141,7 @@ export function profileView() {
         row({ ic: 'profile', title: 'Nome', sub: profile.name || null, onClick: () => renameSelf() }),
         row({ ic: 'key', title: 'Codice del profilo', href: '/impostazioni/collega' }),
         app ? row({ ic: 'file', title: 'File del profilo', sub: file, chevron: false, cls: 'file-row' }) : row({ ic: 'file', title: 'Esporta profilo', onClick: exportProfile, chevron: false }),
-        h('p', { class: 'set-note' }, "Contiene l'accesso alle tue fonti: tienilo per te."),
+        h('p', { class: 'set-note' }, "Chi ha questo codice entra nelle tue fonti come te. Passalo solo ai tuoi dispositivi."),
         row({ ic: 'lock', title: 'Recupero con password', sub: profile.recovery ? 'Attivo' : 'Disattivato', href: '/impostazioni/recupero' })
       );
     patchParts(

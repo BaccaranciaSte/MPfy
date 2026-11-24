@@ -555,7 +555,7 @@ export function detailView(kind, id) {
           coverEl(specs.track(t), { cls: 'tr-cover' }),
           h('span', { class: 'tr-text' }, h('span', { class: 'tr-title' }, h('span', { class: 'tr-title-text' }, t.title)), h('span', { class: 'tr-sub' }, h('span', { class: 'tr-sub-text' }, t.artist))),
           // A button: drag it, or focus it and use the arrow keys (makeSortable).
-          h('button', { type: 'button', class: 'icon-btn drag-handle', 'aria-label': `Sposta ${t.title}: frecce su e giù`, title: 'Trascina o usa le frecce per riordinare' }, icon('drag', 24))
+          h('button', { type: 'button', class: 'icon-btn drag-handle', 'aria-label': `Sposta ${t.title}, frecce su e giù`, title: 'Trascina o usa le frecce per riordinare' }, icon('drag', 24))
         );
       },
     });

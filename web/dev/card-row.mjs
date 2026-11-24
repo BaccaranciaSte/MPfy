@@ -44,12 +44,12 @@ const GB = 1024 ** 3;
     ['found, not chosen', { card: null, found: [found] }, '31,9 GB liberi. Tocca per usarla per la musica', 'use', false],
     ['in use', { card: card(), found: [] }, 'In uso, 12,3 GB liberi', 'inUse', false],
     ['moving in', { card: card({ moving: { done: 230, total: 1200 } }), found: [] }, 'In uso, sposto la musica: 230 di 1.200 brani', 'inUse', false],
-    ['full', { card: card({ full: true }), found: [] }, 'Piena: la musica nuova va nella memoria interna', 'inUse', false],
-    ['read-only', { card: card({ state: 'readonly' }), found: [] }, 'In sola lettura: la musica nuova va nella memoria interna', 'inUse', false],
+    ['full', { card: card({ full: true }), found: [] }, 'Piena, la musica nuova va nella memoria interna', 'inUse', false],
+    ['read-only', { card: card({ state: 'readonly' }), found: [] }, 'In sola lettura, la musica nuova va nella memoria interna', 'inUse', false],
     ['away', { card: card({ state: 'away', awayTracks: 240 }), found: [] }, 'Non trovata: 240 brani non disponibili', 'away', true],
     ['leaving', { card: card({ leaving: true, moving: { done: 230, total: 1200 } }), found: [] }, 'Riporto la musica nella memoria interna: 230 di 1.200 brani', null, false],
-    ["another source's", { card: null, found: [{ ...found, usable: false, why: 'other_source' }] }, "Di un'altra fonte MPfy: non si può usare", null, false],
-    ['not keeping data', { card: card({ bad: true }), found: [] }, 'La scheda non conserva bene i dati: la musica resta nella memoria interna', 'inUse', false],
+    ["another source's", { card: null, found: [{ ...found, usable: false, why: 'other_source' }] }, "Di un'altra fonte MPfy, non si può usare", null, false],
+    ['not keeping data', { card: card({ bad: true }), found: [] }, 'La scheda non conserva bene i dati, la musica resta nella memoria interna', 'inUse', false],
     ['lost from source.json', { card: card({ volume: null, state: 'unconfigured', awayTracks: 3 }), found: [] }, 'Scheda non configurata', 'away', true],
   ];
   for (const [name, view, sub, tap, danger] of cases) {

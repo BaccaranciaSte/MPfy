@@ -174,7 +174,7 @@ export async function deleteTrackFlow(t, src) {
   const name = sources.name(src);
   const v = store.versions(t.id).find((x) => x.sourceId === src);
   const claimOnly = store.roleOf(src) === 'member' && !!v?.t.others;
-  const message = claimOnly ? `Resta su ${name}: è anche di altri.` : `Sparisce da ${name} per tutti.`;
+  const message = claimOnly ? `Resta su ${name}, è anche di altri.` : `Sparisce da ${name} per tutti.`;
   const ok = await confirmDialog({ title: 'Eliminare il brano?', message, okLabel: 'Elimina', danger: true });
   if (!ok) return;
   const r = await store.deleteVersion(t.id, src);

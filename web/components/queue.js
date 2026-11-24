@@ -33,7 +33,7 @@ function queueRow(t, absIndex, { current = false, removable = true } = {}) {
     row.append(
       iconBtn('close', `Rimuovi ${t.title} dalla coda`, () => player.removeAt([indexOf(item)]), { cls: 'q-remove', size: 20 }),
       // A button: drag it with a finger or the mouse, or focus it and use the arrow keys.
-      h('button', { type: 'button', class: 'icon-btn drag-handle', 'aria-label': `Sposta ${t.title}: frecce su e giù`, title: 'Trascina o usa le frecce per riordinare', 'data-qi': String(absIndex) }, icon('drag', 22))
+      h('button', { type: 'button', class: 'icon-btn drag-handle', 'aria-label': `Sposta ${t.title}, frecce su e giù`, title: 'Trascina o usa le frecce per riordinare', 'data-qi': String(absIndex) }, icon('drag', 22))
     );
   }
   return row;

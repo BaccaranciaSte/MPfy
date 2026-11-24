@@ -511,7 +511,7 @@ export function settingsView() {
     // The app's version only: the author signs once, at the foot of the page.
     const info = [row({ ic: logoEl(24), title: BRAND, sub: `Versione ${APP_VERSION}`, chevron: false })];
     // The limit of the chats, said plainly.
-    if (social.chatsSupported) info.push(row({ ic: 'lock', title: 'Messaggi', sub: 'Cifrati: le fonti vedono chi scrive a chi e quando, non cosa.', chevron: false, cls: 'info-messages' }));
+    if (social.chatsSupported) info.push(row({ ic: 'lock', title: 'Messaggi', sub: 'Cifrati, le fonti vedono chi scrive a chi e quando, non cosa.', chevron: false, cls: 'info-messages' }));
 
     if (soc) soc.stop();
     soc = social.settingsSupported ? socialSection() : null;
@@ -708,7 +708,7 @@ const useCardFlow = oneAtATime(async (s, f, done) => {
     'div',
     {},
     h('p', { class: 'dialog-text' }, "La musica nuova andrà sulla scheda e quella che c'è già ci verrà spostata piano piano. Il resto della fonte resta nella memoria interna."),
-    f.appFolder ? h('p', { class: 'dialog-text' }, 'La musica starà nella cartella di Termux sulla scheda: se disinstalli Termux, Android la cancella.') : null
+    f.appFolder ? h('p', { class: 'dialog-text' }, 'La musica starà nella cartella di Termux sulla scheda, e se disinstalli Termux Android la cancella.') : null
   );
   const ok = await openDialog({
     title: 'Usare la scheda per la musica?',
