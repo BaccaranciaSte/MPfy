@@ -115,7 +115,8 @@ export function composer({ onSend, quoteOf = null, placeholder = 'Messaggio', ma
     picker = openEmojiPicker({
       host: panelHost,
       button: emojiBtn,
-      keep: send,
+      // On a phone a tap in the field brings the keyboard (the focus closes the panel then).
+      keep: matchMedia('(min-width: 900px)').matches ? [send] : [send, field],
       onPick: insert,
       onClose: () => {
         el.classList.remove('emoji-on');

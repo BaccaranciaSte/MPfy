@@ -2457,6 +2457,14 @@ async function chats(vp) {
   await press('Escape');
   await sleep(500);
   check(rec === 'Recenti' && !(await evaluate(`return !!document.querySelector('.emoji-panel');`)), `${tag} "Recenti" first once one was used; Escape closes the panel (${rec})`);
+  if (mobile) {
+    // A tap in the text with the panel open: it stays until the field has the focus (the keyboard), then goes.
+    await click('.view-chat .composer-emoji');
+    await sleep(700);
+    const fieldTap = await evaluate(`const i = document.querySelector('.view-chat textarea'); i.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); const open = !!document.querySelector('.emoji-panel'); i.focus(); await new Promise((r) => setTimeout(r, 400)); return { open, after: !!document.querySelector('.emoji-panel'), focused: document.activeElement === i };`);
+    check(fieldTap.open && !fieldTap.after && fieldTap.focused, `${tag} a tap in the text with the emoji open: the field takes the focus, then the panel goes (${JSON.stringify(fieldTap)})`);
+    await evaluate(`document.activeElement.blur(); return true;`);
+  }
   await typeInto('.view-chat textarea', '');
 
   // Scrolling: the older ones load at the top keeping the place; a new one comes into view only at the bottom.
