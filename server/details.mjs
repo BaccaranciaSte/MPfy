@@ -305,8 +305,9 @@ const MB_GENRES = 3
 // recording is not (a romanized title of a song MusicBrainz has in its own script). 3: a name more
 // than one artist answers to gives nothing (it gave the first: a grime Spitz for the band). 4: the
 // song looked for inside each artist of that name (title, length, the artist's id): a credit
-// written in Latin letters (SPITZ, Aimyon) of an artist MusicBrainz names in Japanese.
-export const GENRES_V = 4
+// written in Latin letters (SPITZ, Aimyon) of an artist MusicBrainz names in Japanese. 5: the name
+// asked as a name, an alias or a sort name (artist: alone reaches the main name only).
+export const GENRES_V = 5
 const MAX_SONG_GENRES = 5
 
 /** The first artist a credit names ("A, B", "A & B", "A feat. B": A). */
@@ -1192,7 +1193,9 @@ export class Details {
     let ids = this._artistByName.get(key)
     if (ids === undefined) {
       const q = 'artist:"' + name.replace(/[\\"]/g, (c) => '\\' + c) + '"'
-      const answer = await this._mb('/ws/2/artist?query=' + encodeURIComponent(q) + '&fmt=json&limit=5', ctx)
+      // As a name, an alias or a sort name: artist: alone reaches the main name only (the Japanese name, not Aimyon).
+      const any = q + ' OR alias:' + q.slice('artist:'.length) + ' OR sortname:' + q.slice('artist:'.length)
+      const answer = await this._mb('/ws/2/artist?query=' + encodeURIComponent(any) + '&fmt=json&limit=5', ctx)
       const list = answer && Array.isArray(answer.artists) ? answer.artists : []
       const same = (x) => typeof x === 'string' && norm(x) === key
       const hits = list.filter((a) => a && typeof a.id === 'string' && !(typeof a.score === 'number' && a.score < 95) && (same(a.name) || same(a['sort-name']) || (Array.isArray(a.aliases) && a.aliases.some((x) => x && same(x.name)))))

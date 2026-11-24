@@ -1337,7 +1337,7 @@ test('details: a track whose tags have no genre gets its genres from MusicBrainz
     'artist/a1': { id: 'a1', genres: [{ name: 'soundtrack', count: 5 }, { name: 'musical', count: 4 }, { name: 'pop', count: 1 }, { name: 'jazz', count: 1 }] },
     artist: { artists: [{ id: 'a9', name: 'Mr. Children', score: 80 }, { id: 'a2', name: 'Mr.Children', 'sort-name': 'Mr.Children', score: 100 }] },
     'artist/a2': { id: 'a2', genres: [{ name: 'j-pop', count: 6 }, { name: 'j-rock', count: 3 }] },
-    ['artist?query=' + encodeURIComponent('artist:"SPITZ"') + '&fmt=json&limit=5']: { artists: [{ id: 'g1x', name: 'SPITZ', score: 100 }, { id: 'jp1', name: 'Supittsu', 'sort-name': 'Spitz', score: 100 }] },
+    ['artist?query=' + encodeURIComponent('artist:"SPITZ" OR alias:"SPITZ" OR sortname:"SPITZ"') + '&fmt=json&limit=5']: { artists: [{ id: 'g1x', name: 'SPITZ', score: 100 }, { id: 'jp1', name: 'Supittsu', 'sort-name': 'Spitz', score: 100 }] },
     'artist/g1x': { id: 'g1x', genres: [{ name: 'grime', count: 2 }] },
     'recording/r9': { id: 'r9', title: 'Nove', 'artist-credit': [{ name: 'Supittsu', joinphrase: '', artist: { id: 'jp1', name: 'Supittsu' } }], releases: rel('g3'), genres: [{ name: 'j-rock', count: 2 }] },
     'artist/jp1': { id: 'jp1', genres: [{ name: 'j-pop', count: 5 }] }
