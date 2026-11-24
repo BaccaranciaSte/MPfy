@@ -130,12 +130,13 @@ function render(pathname, query, scrollTop, motion = null) {
 }
 
 // ---- global link handling: <a data-link> navigates inside the app; the tabs and the sidebar
-// crossfade, every other link goes one page deeper ----
+// crossfade, every other link goes one page deeper; one with data-replace takes the page's place in
+// the history (a genre's chips: Back leaves the genres, not the last chip) ----
 document.addEventListener('click', (e) => {
   const a = e.target.closest('a[data-link]');
   if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
   e.preventDefault();
-  navigate(a.getAttribute('href'), { tab: !!a.closest('#nav, #sidebar') });
+  navigate(a.getAttribute('href'), { tab: !!a.closest('#nav, #sidebar'), replace: a.hasAttribute('data-replace') });
 });
 
 // ---- desktop layout pieces are mounted only when the desktop layout is active ----

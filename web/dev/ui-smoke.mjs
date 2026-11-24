@@ -1738,6 +1738,11 @@ async function genres(vp) {
   st = await evaluate(`const s = mpfy.player.state; const ids = s.items.map((it) => it.id); return { ctx: s.context && s.context.type + ':' + s.context.id, n: ids.length, once: new Set(ids).size === ids.length, shuffle: s.shuffle };`);
   check(st.ctx === 'genre:pop.citypop' && st.n === 5 && st.once && st.shuffle, `${tag} casuale on a genre: each of its songs once (${JSON.stringify(st)})`);
   await evaluate(`mpfy.player.pause(); mpfy.player.setShuffle(false); return true;`);
+  // The chips take the page's place: Back leaves the genres (to Cerca), not the last chip.
+  await evaluate(`history.back(); return true;`);
+  await sleep(1200);
+  const backTo = await evaluate(`return location.pathname;`);
+  check(backTo === '/search', `${tag} Back from a genre reached by its chip: Cerca, not the family (${backTo})`);
   // A query finds the genres, by name and written any way.
   for (const [q, want] of [['city pop', 'City pop'], ['jpop', 'J-pop'], ['colonne', 'Colonne sonore e musical']]) {
     await go(`${base}/search?q=${encodeURIComponent(q)}&nosw`, 1500);

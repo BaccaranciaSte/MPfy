@@ -137,7 +137,7 @@ export function detailView(kind, id) {
     if (kind === 'genre') {
       // A genre's page: its family first, a link back to all of it.
       const g = m.genre;
-      return g.genre ? [h('a', { class: 'meta-owner', href: genreHref(g.family.id), 'data-link': '' }, g.family.name), sep(), h('span', {}, count)] : [h('span', {}, count)];
+      return g.genre ? [h('a', { class: 'meta-owner', href: genreHref(g.family.id), 'data-link': '', 'data-replace': '' }, g.family.name), sep(), h('span', {}, count)] : [h('span', {}, count)];
     }
     // You: your picture (18 px) next to "Tu"; the logo on a core without profiles.
     return [h('span', { class: 'meta-owner' }, profile.data ? avatar(18, { cls: 'owner-av' }) : logoEl(18), 'Tu'), sep(), h('span', {}, count)];
@@ -339,7 +339,7 @@ export function detailView(kind, id) {
         key: 'genres',
         sig: JSON.stringify([g.id, g.family, g.genres]),
         build: () => {
-          const chip = (label, gid) => h('a', { class: `chip${gid === g.id ? ' on' : ''}`, href: genreHref(gid), 'data-link': '', 'aria-current': gid === g.id ? 'page' : null }, label);
+          const chip = (label, gid) => h('a', { class: `chip${gid === g.id ? ' on' : ''}`, href: genreHref(gid), 'data-link': '', 'data-replace': '', 'aria-current': gid === g.id ? 'page' : null }, label);
           return h('div', { class: 'chips genre-chips' }, chip('Tutto', g.family.id), ...g.genres.filter((x) => x.name !== g.family.name).map((x) => chip(x.name, x.id)));
         },
       });
