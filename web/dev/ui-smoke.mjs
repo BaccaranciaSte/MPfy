@@ -1708,7 +1708,7 @@ async function genres(vp) {
   await fetch(`${base}/__mock/reset?sources=2`);
   await go(`${base}/search?nosw`, 2000);
   const fams = await evaluate(`return { names: [...document.querySelectorAll('.view-search .genre-card .browse-name')].map((x) => x.textContent), titles: [...document.querySelectorAll('.view-search .section-title')].map((x) => x.textContent) };`);
-  check(JSON.stringify(fams.names) === JSON.stringify(['Pop', 'Hip hop e rap', 'Elettronica e dance', 'Colonne sonore e musical']) && JSON.stringify(fams.titles.slice(0, 2)) === JSON.stringify(['Sfoglia tutto', 'Artisti']), `${tag} Cerca: the families with songs, in their order, then "Artisti" (${JSON.stringify(fams)})`);
+  check(JSON.stringify(fams.names) === JSON.stringify(['Pop', 'Hip hop e rap', 'Elettronica e dance', 'Colonne sonore e musical', 'Jazz e blues']) && JSON.stringify(fams.titles.slice(0, 2)) === JSON.stringify(['Sfoglia tutto', 'Artisti']), `${tag} Cerca: the families with songs, in their order, then "Artisti" (${JSON.stringify(fams)})`);
   const order = await evaluate(`return [...document.querySelectorAll('.view-search .browse-card:not(.genre-card) .browse-name')].map((x) => x.textContent);`);
   check(order.indexOf('Gli Scogli') > order.indexOf('Orsa Minore') && order.indexOf('Orsa Minore') >= 0, `${tag} the artists by their sort name: "Gli Scogli" sorted as "Scogli" (${JSON.stringify(order)})`);
   await shot(`${tag}-genres-browse`);
@@ -1738,6 +1738,15 @@ async function genres(vp) {
   st = await evaluate(`const s = mpfy.player.state; const ids = s.items.map((it) => it.id); return { ctx: s.context && s.context.type + ':' + s.context.id, n: ids.length, once: new Set(ids).size === ids.length, shuffle: s.shuffle };`);
   check(st.ctx === 'genre:pop.citypop' && st.n === 5 && st.once && st.shuffle, `${tag} casuale on a genre: each of its songs once (${JSON.stringify(st)})`);
   await evaluate(`mpfy.player.pause(); mpfy.player.setShuffle(false); return true;`);
+  // One song of an album has a genre: its album and its artist's other album come along.
+  await go(`${base}/genere/jazz?nosw`, 1500);
+  const jazz = await evaluate(`return document.querySelectorAll('.view-detail .track-row').length;`);
+  check(jazz === 10, `${tag} a song with no genre takes its album's, else its artist's: 10 in Jazz e blues (${jazz})`);
+  await go(`${base}/search?nosw`, 1500);
+  await click('.view-search .genre-card');
+  await sleep(1200);
+  await evaluate(`[...document.querySelectorAll('.view-detail .genre-chips .chip')].find((c) => c.textContent === 'City pop').click(); return true;`);
+  await sleep(1200);
   // The chips take the page's place: Back leaves the genres (to Cerca), not the last chip.
   await evaluate(`history.back(); return true;`);
   await sleep(1200);

@@ -1,5 +1,6 @@
 // The genres of the library: each family of Cerca (genres.js MACROS) with its songs and the
-// genres in it, read from the genres of every version of a song (one of each). The songs of a
+// genres in it, read from the genres of every version of a song (one of each); a song with none
+// takes those of its album, else of its artist. The songs of a
 // family or a genre are in the order "Play" follows: artist of the album, album, disc, number,
 // title. Made again only after the store moved (store.changed().seq).
 //
@@ -56,9 +57,26 @@ export function genreIndex() {
   const seq = typeof store.changed === 'function' ? store.changed().seq : null;
   if (memo && seq !== null && memo.seq === seq) return memo.index;
   const families = new Map();
-  for (const song of store.lib.tracks || []) {
+  // A song with no genre of its own takes its album's, else its artist's (what their other songs have).
+  const d = store.d;
+  const songs = store.lib.tracks || [];
+  const own = new Map();
+  const byAlbum = new Map();
+  const byArtist = new Map();
+  for (const song of songs) {
     const gs = genresOfSong(song);
     if (!gs.size) continue;
+    own.set(song, gs);
+    for (const [map, key] of [[byAlbum, d.albumOf.get(song.id)], [byArtist, d.artistOf.get(song.id)]]) {
+      if (key == null) continue;
+      let m = map.get(key);
+      if (!m) map.set(key, (m = new Map()));
+      for (const [k, g] of gs) if (!m.has(k)) m.set(k, g);
+    }
+  }
+  for (const song of songs) {
+    const gs = own.get(song) || byAlbum.get(d.albumOf.get(song.id)) || byArtist.get(d.artistOf.get(song.id));
+    if (!gs || !gs.size) continue;
     const inFamily = new Set();
     for (const g of gs.values()) {
       let f = families.get(g.macro);
