@@ -161,6 +161,15 @@ internal class FakeReader(private val ms: FakeMediaStore) : FileReader {
   }
 
   fun names(): List<String> = reads.map { it.name }
+
+  /** What a measure of each row gives (absent: it cannot be measured), and the rows measured. */
+  val loud = HashMap<Long, R128Meter.Result>()
+  val measured = ArrayList<Row>()
+
+  override fun loudness(row: Row): R128Meter.Result? {
+    measured.add(row)
+    return loud[row.mediaId]
+  }
 }
 
 internal class ProcessDeath : Error("the process died here")
@@ -241,6 +250,10 @@ internal class IndexHost(var now: Long = 1_750_000_000_000) : LocalIndex.Host {
   }
 
   override fun log(line: String) {}
+
+  var charging = true
+
+  override fun charging(): Boolean = charging
 
   @Suppress("UNCHECKED_CAST")
   fun sent(from: Int = 0): List<Map<String, Any?>> = lines.drop(from).map { Json.parse(it) as Map<String, Any?> }

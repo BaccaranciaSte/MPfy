@@ -2,6 +2,8 @@ package com.baccarancia.mpfy
 
 import android.content.ContentUris
 import android.content.Context
+import android.media.AudioFormat
+import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMetadataRetriever
@@ -17,6 +19,7 @@ import java.io.Closeable
 import java.io.File
 import java.io.FileInputStream
 import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.nio.channels.FileChannel
 import java.security.MessageDigest
 import java.util.concurrent.ExecutorService
@@ -76,6 +79,9 @@ class Probe(val outcome: Outcome, val facts: Facts?) {
 /** Reads one file of the index (LocalProbe on the phone; a fake in the tests). */
 interface FileReader {
   fun probe(row: Row): Probe
+
+  /** The loudness of a whole file, decoded (R128Meter); null when it cannot be measured. */
+  fun loudness(row: Row): R128Meter.Result? = null
 }
 
 data class Stat(val size: Long, val mtimeSec: Long)
@@ -130,6 +136,9 @@ interface OpenFile : ByteSource, Closeable {
 
   /** An .lrc beside the file, where the system lets an app read one (Android 10), at most 64 KB. */
   fun lrcBeside(): String?
+
+  /** The whole first audio stream decoded and measured (R128Meter); null when it cannot be. */
+  fun loudness(): R128Meter.Result? = null
 }
 
 interface ProbeIo {
@@ -148,6 +157,21 @@ class FileProbe(private val io: ProbeIo, private val art: ArtSink) : FileReader 
     private const val HEAD = 4096
     private const val CHUNK = 256 * 1024
     private val CODECS = mapOf("mp3" to "audio/mpeg", "aac" to "audio/mp4a-latm", "flac" to "audio/flac", "ogg" to "audio/vorbis", "opus" to "audio/opus", "wav" to "audio/raw")
+  }
+
+  override fun loudness(row: Row): R128Meter.Result? {
+    val f = try {
+      io.open(row)
+    } catch (e: Exception) {
+      null
+    } ?: return null
+    return try {
+      f.loudness()
+    } catch (e: Exception) {
+      null
+    } finally {
+      runCatching { f.close() }
+    }
   }
 
   override fun probe(row: Row): Probe {
@@ -262,6 +286,8 @@ class LocalProbe(context: Context) : ProbeIo {
 
   companion object {
     private const val RETRIEVER_LIMIT_S = 10L
+    // A whole file decoded: an hour-long mix on a slow phone included.
+    private const val LOUDNESS_LIMIT_S = 600L
     private const val MAX_LRC = 64 * 1024
   }
 
@@ -379,6 +405,79 @@ class LocalProbe(context: Context) : ProbeIo {
         if (lrc.length() > MAX_LRC) null else lrc.readText(Charsets.UTF_8)
       } catch (e: Exception) {
         null
+      }
+    }
+
+    // MediaCodec decodes; a file that takes longer than LOUDNESS_LIMIT_S, changes its format midway
+    // or has no audio stream is not measured.
+    override fun loudness(): R128Meter.Result? {
+      val ex = MediaExtractor()
+      try {
+        ex.setDataSource(pfd.fileDescriptor)
+        val track = (0 until ex.trackCount).firstOrNull { ex.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true } ?: return null
+        ex.selectTrack(track)
+        val format = ex.getTrackFormat(track)
+        val codec = MediaCodec.createDecoderByType(format.getString(MediaFormat.KEY_MIME)!!)
+        try {
+          codec.configure(format, null, null, 0)
+          codec.start()
+          val deadline = System.nanoTime() + LOUDNESS_LIMIT_S * 1_000_000_000L
+          val info = MediaCodec.BufferInfo()
+          var meter: R128Meter? = null
+          var channels = 0
+          var float = false
+          var buf = FloatArray(0)
+          var inputDone = false
+          while (true) {
+            if (System.nanoTime() > deadline) return null
+            if (!inputDone) {
+              val i = codec.dequeueInputBuffer(10_000)
+              if (i >= 0) {
+                val n = ex.readSampleData(codec.getInputBuffer(i)!!, 0)
+                if (n < 0) {
+                  codec.queueInputBuffer(i, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                  inputDone = true
+                } else {
+                  codec.queueInputBuffer(i, 0, n, ex.sampleTime, 0)
+                  ex.advance()
+                }
+              }
+            }
+            val o = codec.dequeueOutputBuffer(info, 10_000)
+            if (o == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+              if (meter != null) return null
+              val out = codec.outputFormat
+              channels = out.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+              float = Build.VERSION.SDK_INT >= 24 && out.containsKey(MediaFormat.KEY_PCM_ENCODING) && out.getInteger(MediaFormat.KEY_PCM_ENCODING) == AudioFormat.ENCODING_PCM_FLOAT
+              meter = R128Meter(out.getInteger(MediaFormat.KEY_SAMPLE_RATE), channels)
+            } else if (o >= 0) {
+              val m = meter
+              if (info.size > 0 && m != null && channels > 0) {
+                val ob = codec.getOutputBuffer(o)!!.order(ByteOrder.nativeOrder())
+                ob.position(info.offset)
+                ob.limit(info.offset + info.size)
+                val n = if (float) info.size / 4 else info.size / 2
+                if (buf.size < n) buf = FloatArray(n)
+                if (float) {
+                  ob.asFloatBuffer().get(buf, 0, n)
+                } else {
+                  val sb = ob.asShortBuffer()
+                  for (k in 0 until n) buf[k] = sb.get() / 32768f
+                }
+                m.push(buf, n / channels)
+              }
+              codec.releaseOutputBuffer(o, false)
+              if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) return meter?.result()
+            }
+          }
+        } finally {
+          runCatching { codec.stop() }
+          runCatching { codec.release() }
+        }
+      } catch (e: Exception) {
+        return null
+      } finally {
+        runCatching { ex.release() }
       }
     }
 

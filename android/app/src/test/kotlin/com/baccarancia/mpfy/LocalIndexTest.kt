@@ -818,4 +818,24 @@ class LocalIndexTest {
     assertTrue(reader.reads.isEmpty())
     assertEquals(setOf(id(1), id(5)), coreIds())
   }
+
+  @Test
+  fun aSongWithNoGainTagIsMeasuredOnceAndItsLoudnessReachesTheCore() {
+    val rows = songs(3)
+    val ix = index()
+    ix.hello(null, 0)
+    scan(ix)
+    host.pump(ix)
+    reader.loud[rows[0].mediaId] = R128Meter.Result(-9.123, -0.456)
+    var n = 0
+    while (ix.measureNext()) n++
+    assertEquals(3, n)
+    host.pump(ix)
+    assertEquals(mapOf("lufs" to -9.12, "peak" to -0.46), host.core.tracks.getValue(id(1))["scan"])
+    // One that cannot be measured: "none", sent too (the core takes no loudness from it).
+    assertEquals(mapOf("none" to true), host.core.tracks.getValue(id(2))["scan"])
+    // Not again: every one has its answer.
+    assertEquals(false, ix.measureNext())
+    assertEquals(3, reader.measured.size)
+  }
 }

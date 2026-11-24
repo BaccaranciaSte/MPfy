@@ -217,6 +217,14 @@ function metadataOf (F) {
   }
 }
 
+test('the loudness the phone measured counts when the tags give none; the tags win', () => {
+  const base = { id: 'a'.repeat(24), name: 'x.mp3', size: 1, addedAt: 0, format: 'mp3', codec: 'mp3', tags: {} }
+  assert.deepEqual(rules.trackFromFacts({ ...base, scan: { lufs: -9.12, peak: -0.46 } }).loud, { lufs: -9.12, peak: -0.46, album: null, from: 'scan' })
+  assert.deepEqual(rules.trackFromFacts({ ...base, tags: { rg: { trackGain: -4 } }, scan: { lufs: -9.12, peak: null } }).loud, { lufs: -14, peak: null, album: null, from: 'tag' })
+  assert.equal(rules.trackFromFacts({ ...base, scan: { none: true } }).loud, null)
+  assert.equal(rules.trackFromFacts(base).loud, null)
+})
+
 test('the track from the phone\'s facts equals buildTrack of the source for the same raw values (500 vectors)', () => {
   const r = rng(11)
   for (let n = 0; n < 500; n++) {

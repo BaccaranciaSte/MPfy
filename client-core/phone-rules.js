@@ -17,7 +17,7 @@ import b4a from 'b4a'
 import sodium from 'sodium-native'
 import { differentVersions } from './versions.js'
 import { splitGenres } from '../web/js/genres.js'
-import { loudFromTags } from '../web/js/loudness.js'
+import { loudFromTags, loudFromScan } from '../web/js/loudness.js'
 
 export const UNKNOWN_ARTIST = 'Artista sconosciuto'
 export const UNKNOWN_ALBUM = 'Album sconosciuto'
@@ -132,7 +132,8 @@ export function trackFromFacts (F) {
     tagless: taglessOf(tags, F.coverId),
     genres: splitGenres(tags.genres || []),
     sort: sortOf(tags),
-    loud: loudFromTags(tags.rg)
+    // The tags' first, else what the phone measured (the source's own measure is a job, after the build).
+    loud: loudFromTags(tags.rg) || (F.scan && typeof F.scan === 'object' ? loudFromScan(F.scan.lufs, F.scan.peak) : null)
   }
 }
 

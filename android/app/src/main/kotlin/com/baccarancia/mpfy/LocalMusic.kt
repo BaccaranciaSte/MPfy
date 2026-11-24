@@ -67,6 +67,9 @@ class LocalIndex(
     fun readingStarted() {}
 
     fun readingEnded(files: Int, bytes: Long, ms: Long) {}
+
+    /** The phone is charging: the loudness of its songs is measured only then. */
+    fun charging(): Boolean = true
   }
 
   companion object {
@@ -359,6 +362,51 @@ class LocalIndex(
     return true
   }
 
+  // The files whose loudness is still to measure, listed once per pass (measureNext).
+  private var toMeasure: ArrayDeque<Long>? = null
+
+  fun charging(): Boolean = host.charging()
+
+  /**
+   * The loudness of the next song whose tags say nothing of it (no ReplayGain or R128 track gain):
+   * the whole file decoded and measured (FileReader.loudness), kept in its facts as "scan" (a file
+   * that cannot be measured: "none", not tried again until it changes), the track fed again. False
+   * when none is left. LocalWork runs it after the reads, while the phone charges.
+   */
+  fun measureNext(): Boolean {
+    if (!granted) return false
+    val q = toMeasure ?: ArrayDeque(store.withState(LocalStore.OK).filter { it.present && needsMeasure(it) }.map { it.key }).also { toMeasure = it }
+    while (q.isNotEmpty()) {
+      val cur = store.fileByKey(q.removeFirst()) ?: continue
+      if (cur.state != LocalStore.OK || !cur.present || !needsMeasure(cur)) continue
+      val r = try {
+        reader.loudness(cur.row())
+      } catch (e: Exception) {
+        null
+      }
+      store.tx {
+        val now = store.fileByKey(cur.key) ?: return@tx
+        if (now.state != LocalStore.OK || now.facts != cur.facts) return@tx
+        val facts = Facts.parse(now.facts) ?: return@tx
+        val scan = if (r != null) linkedMapOf<String, Any?>("lufs" to round2(r.lufs), "peak" to r.peak?.let(::round2)) else linkedMapOf<String, Any?>("none" to true)
+        store.update(now.copy(facts = facts.with("scan", scan).json()))
+        now.trackId?.let { refresh(setOf(it)) }
+      }
+      return true
+    }
+    toMeasure = null
+    return false
+  }
+
+  private fun round2(v: Double): Double = Math.round(v * 100) / 100.0
+
+  private fun needsMeasure(f: FileRec): Boolean {
+    val m = Facts.parse(f.facts)?.map ?: return false
+    if (m.containsKey("scan")) return false
+    val rg = (m["tags"] as? Map<*, *>)?.get("rg") as? Map<*, *>
+    return rg?.get("trackGain") == null && rg?.get("r128Track") == null
+  }
+
   /**
    * The ids a file had before its bytes changed: the row's own old id (a file rewritten in place),
    * or the id of another row at the same path (a retag written as a new file, its old row gone
@@ -462,13 +510,15 @@ class LocalIndex(
   /** The facts the core gets for a track (F): the file's own fields, then what reading it found. */
   private fun trackJson(f: FileRec, facts: Facts, lyrics: String?): String {
     val m = facts.map
-    return Json.write(
+    val out: LinkedHashMap<String, Any?> =
       linkedMapOf(
         "id" to facts.id, "name" to f.name, "size" to f.size, "mtime" to f.mtime, "addedAt" to f.added,
         "tags" to m["tags"], "format" to m["format"], "codec" to m["codec"], "duration" to m["duration"], "bitrate" to m["bitrate"],
         "sampleRate" to m["sampleRate"], "bitDepth" to m["bitDepth"], "coverId" to m["coverId"], "lyrics" to lyrics?.let { Json.parse(it) }, "was" to facts.was,
-      ),
-    )
+      )
+    // The measured loudness, only once there is one: the facts of every other song stay as they were.
+    m["scan"]?.let { out["scan"] = it }
+    return Json.write(out)
   }
 
   private fun sha16(s: String): String = CoverArt.hex(MessageDigest.getInstance("SHA-256").digest(s.toByteArray(Charsets.UTF_8))).substring(0, 16)
@@ -647,6 +697,8 @@ class LocalWork(private val index: LocalIndex, private val sched: Scheduler) {
     const val MAX_WAIT_MS = 10_000L
     const val FEED_MS = 2_000L
     const val KEEP_INDEX_MS = 30L * 24 * 3600 * 1000
+    // Not charging: the loudness measure looks again after this.
+    const val MEASURE_WAIT_MS = 10L * 60 * 1000
 
     /** The index of a phone whose permission has been off since [offSince] is kept for 30 days, then deleted. */
     fun keepIndex(offSince: Long?, now: Long): Boolean = offSince == null || now - offSince < KEEP_INDEX_MS
@@ -661,6 +713,8 @@ class LocalWork(private val index: LocalIndex, private val sched: Scheduler) {
   // The reads stopped at a suspension with files still waiting.
   private var paused = false
   private var feedTask: Cancel? = null
+  private var measuring = false
+  private var measureTask: Cancel? = null
 
   fun start(granted: Boolean) {
     this.granted = granted
@@ -716,6 +770,7 @@ class LocalWork(private val index: LocalIndex, private val sched: Scheduler) {
       probeSoon()
     }
     flush()
+    measureSoon()
   }
 
   fun onHello(token: String?, batch: Long) {
@@ -768,6 +823,30 @@ class LocalWork(private val index: LocalIndex, private val sched: Scheduler) {
       probeSoon()
     } else {
       flush()
+      measureSoon()
+    }
+  }
+
+  // The loudness measure, one song a step, after the reads and only while the phone charges.
+  private fun measureSoon() {
+    if (measuring || measureTask != null) return
+    measuring = true
+    sched.post { measureStep() }
+  }
+
+  private fun measureStep() {
+    measuring = false
+    if (!granted || !awake || probing) return
+    if (!index.charging()) {
+      measureTask = sched.later(MEASURE_WAIT_MS) {
+        measureTask = null
+        measureSoon()
+      }
+      return
+    }
+    if (index.measureNext()) {
+      feedSoon()
+      measureSoon()
     }
   }
 
@@ -991,6 +1070,8 @@ object LocalMusic {
     override fun readingStarted() {
       chargeAtStart = charge()
     }
+
+    override fun charging(): Boolean = app.getSystemService(BatteryManager::class.java)?.isCharging == true
 
     override fun readingEnded(files: Int, bytes: Long, ms: Long) {
       val before = chargeAtStart

@@ -92,7 +92,8 @@ export function cleanFacts (F) {
     bitDepth: count(F.bitDepth),
     coverId: typeof F.coverId === 'string' && ID_RE.test(F.coverId) ? F.coverId : null,
     lyrics: { synced, texts, lrc },
-    was: [...new Set(was)]
+    was: [...new Set(was)],
+    ...scanOf(F.scan)
   }
 }
 
@@ -100,6 +101,12 @@ export function cleanFacts (F) {
 function genresOf (g) {
   const list = Array.isArray(g) ? g.filter((s) => typeof s === 'string').slice(0, 16).map((s) => s.slice(0, MAX_TEXT)) : []
   return list.length > 0 ? { genres: list } : {}
+}
+
+// The loudness the host measured (finite LUFS, the peak or null): none, no key.
+function scanOf (s) {
+  if (s === null || typeof s !== 'object' || typeof s.lufs !== 'number' || !Number.isFinite(s.lufs)) return {}
+  return { scan: { lufs: s.lufs, peak: typeof s.peak === 'number' && Number.isFinite(s.peak) ? s.peak : null } }
 }
 
 // The sort tags the host read: only those it has (facts without them hash as before).
