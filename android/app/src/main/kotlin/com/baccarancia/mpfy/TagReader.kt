@@ -64,6 +64,8 @@ class TagInfo(
   val sampleRate: Int?,
   val bitDepth: Int?,
   val audioStart: Long,
+  // ARTISTSORT, ALBUMARTISTSORT, ALBUMSORT, TITLESORT, REPLAYGAIN_* and R128_*: their first value.
+  val values: Map<String, String> = emptyMap(),
 )
 
 /**
@@ -91,6 +93,15 @@ object TagReader {
   private const val MAX_DESC = 64 * 1024
   private const val FRONT_COVER = 3
   private val TEXT_KEYS = setOf("LYRICS", "UNSYNCEDLYRICS", "UNSYNCED LYRICS")
+  // The tags read besides lyrics and pictures (Vorbis names): sort names, ReplayGain and R128.
+  private val VALUE_KEYS = setOf(
+    "ARTISTSORT", "ALBUMARTISTSORT", "ALBUMSORT", "TITLESORT",
+    "REPLAYGAIN_TRACK_GAIN", "REPLAYGAIN_TRACK_PEAK", "REPLAYGAIN_ALBUM_GAIN", "REPLAYGAIN_ALBUM_PEAK", "R128_TRACK_GAIN", "R128_ALBUM_GAIN",
+  )
+  private val ID3_SORT = mapOf("TSOP" to "ARTISTSORT", "TSO2" to "ALBUMARTISTSORT", "TSOA" to "ALBUMSORT", "TSOT" to "TITLESORT")
+  private val MP4_SORT = mapOf("soar" to "ARTISTSORT", "soaa" to "ALBUMARTISTSORT", "soal" to "ALBUMSORT", "sonm" to "TITLESORT")
+  // A value frame, comment or item longer than this is none of these.
+  private const val MAX_VALUE = 4096
 
   private class Found {
     var walked = true
@@ -100,6 +111,7 @@ object TagReader {
     var sampleRate: Int? = null
     var bitDepth: Int? = null
     var audioStart = 0L
+    val values = LinkedHashMap<String, String>()
   }
 
   /** The container a file's first bytes say, as the source's sniffAudio: id3, mp3, aac, m4a, flac, ogg, opus, wav, or null. */
@@ -148,7 +160,7 @@ object TagReader {
       "m4a" -> mp4(src, f)
       "wav" -> wav(src, f)
     }
-    return TagInfo(f.walked, f.pictures, f.synced, f.texts, f.sampleRate, f.bitDepth, f.audioStart)
+    return TagInfo(f.walked, f.pictures, f.synced, f.texts, f.sampleRate, f.bitDepth, f.audioStart, f.values)
   }
 
   private fun magic(src: ByteSource, pos: Long, word: String): Boolean {
@@ -243,10 +255,19 @@ object TagReader {
       id == "USLT" || id == "ULT" -> 'T'
       id == "SYLT" -> 'S'
       (id == "APIC" && major >= 3) || (id == "PIC" && major == 2) -> 'P'
+      id in ID3_SORT && major >= 3 -> 'V'
+      id == "TXXX" && major >= 3 -> 'X'
       else -> return
     }
     val unsync = major == 4 && (flags and 0x0002) != 0
     val lengthIndicator = major == 4 && (flags and 0x0001) != 0
+    if (kind == 'V' || kind == 'X') {
+      if (len < 2 || len > MAX_VALUE) return
+      val raw = body.bytesAt(start, len.toInt()) ?: return
+      val d = if (unsync || lengthIndicator) decodeFrame(raw, unsync, lengthIndicator) ?: return else raw
+      if (kind == 'V') textValue(d, ID3_SORT.getValue(id), f) else txxx(d, f)
+      return
+    }
     if (!unsync && !lengthIndicator) {
       when (kind) {
         'T' -> uslt(body, start, len, f)
@@ -350,6 +371,28 @@ object TagReader {
     val t = body.bytesAt(start + textStart, region.toInt()) ?: return
     val text = nullTerminated(t, 0, t.size, enc)?.first ?: return
     keepText(text, f)
+  }
+
+  // A text frame: its encoding, then its first value.
+  private fun textValue(d: ByteArray, key: String, f: Found) {
+    if (d.size < 2) return
+    val enc = encOf(u8(d, 0))
+    nullTerminated(d, 1, d.size, enc)?.first?.let { keepValue(key, it, f) }
+  }
+
+  // TXXX: its encoding, a description (the key), then the value.
+  private fun txxx(d: ByteArray, f: Found) {
+    if (d.size < 3) return
+    val enc = encOf(u8(d, 0))
+    val (desc, used) = nullTerminated(d, 1, d.size, enc) ?: return
+    val key = desc.trim().uppercase()
+    if (key !in VALUE_KEYS || 1 + used >= d.size) return
+    nullTerminated(d, 1 + used, d.size, enc)?.first?.let { keepValue(key, it, f) }
+  }
+
+  private fun keepValue(key: String, value: String, f: Found) {
+    val v = value.trim()
+    if (v.isNotEmpty() && v.length <= MAX_VALUE && key !in f.values) f.values[key] = v
   }
 
   private fun keepText(text: String, f: Found) {
@@ -491,6 +534,11 @@ object TagReader {
         val b = src.bytesAt(valueStart, valueLen.toInt()) ?: return
         keepText(utf8(b, 0, b.size), f)
       }
+      key in VALUE_KEYS -> {
+        if (valueLen <= 0 || valueLen > MAX_VALUE) return
+        val b = src.bytesAt(valueStart, valueLen.toInt()) ?: return
+        keepValue(key, utf8(b, 0, b.size), f)
+      }
       key == "METADATA_BLOCK_PICTURE" -> {
         if (valueLen < 8) return
         // Base64 of a FLAC picture block: the type from its first eight characters.
@@ -622,6 +670,11 @@ object TagReader {
     for (b in boxes(src, start, m.end, false, f)) {
       if (b.type != "ilst") continue
       for (item in boxes(src, b.start, b.end, false, f)) {
+        val sortKey = MP4_SORT[item.type]
+        if (sortKey != null || item.type == "----") {
+          mp4Value(src, item, sortKey, f)
+          continue
+        }
         val lyrics = item.type == "\u00a9lyr"
         if (!lyrics && item.type != "covr") continue
         for (d in boxes(src, item.start, item.end, false, f)) {
@@ -639,6 +692,26 @@ object TagReader {
             f.pictures.add(Picture(null, valueLen) { src.bytesAt(valueStart, valueLen.toInt()) })
           }
         }
+      }
+    }
+  }
+
+  // A sort item (its key given) or a freeform iTunes item ("----": mean, name, data): a UTF-8 value.
+  private fun mp4Value(src: ByteSource, item: Box, sortKey: String?, f: Found) {
+    var key = sortKey
+    for (d in boxes(src, item.start, item.end, false, f)) {
+      val n = d.end - d.start
+      if (d.type == "name" && sortKey == null && n in 5L..260L) {
+        val b = src.bytesAt(d.start + 4, (n - 4).toInt()) ?: return
+        key = utf8(b, 0, b.size).trim().uppercase()
+      } else if (d.type == "data" && n in 9L..(8L + MAX_VALUE)) {
+        val k = key ?: return
+        if (k !in VALUE_KEYS) return
+        val dh = src.bytesAt(d.start, 8) ?: return
+        if (u8(dh, 0) != 0 || u24be(dh, 1) != 1) return
+        val v = src.bytesAt(d.start + 8, (n - 8).toInt()) ?: return
+        keepValue(k, utf8(v, 0, v.size), f)
+        return
       }
     }
   }

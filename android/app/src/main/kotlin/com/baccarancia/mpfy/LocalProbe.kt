@@ -98,6 +98,26 @@ data class Meta(
   val genre: String? = null,
 )
 
+/**
+ * The sort tags and the ReplayGain / R128 numbers of [values] (TagReader) into the facts' tags, as
+ * the core takes them (client-core/phone-track.js): none, no key, so facts without them hash as before.
+ */
+internal fun sortAndGain(values: Map<String, String>, t: MutableMap<String, Any?>) {
+  for ((k, name) in listOf("ARTISTSORT" to "artistSort", "ALBUMARTISTSORT" to "albumArtistSort", "ALBUMSORT" to "albumSort", "TITLESORT" to "titleSort")) {
+    values[k]?.let { t[name] = it }
+  }
+  val number = Regex("""^\s*([+-]?\d+(?:\.\d+)?)""")
+  fun dec(k: String): Double? = values[k]?.let { number.find(it)?.groupValues?.get(1)?.toDoubleOrNull() }?.takeIf { it.isFinite() }
+  val rg = linkedMapOf<String, Any?>()
+  dec("REPLAYGAIN_TRACK_GAIN")?.let { rg["trackGain"] = it }
+  dec("REPLAYGAIN_TRACK_PEAK")?.let { rg["trackPeak"] = it }
+  dec("REPLAYGAIN_ALBUM_GAIN")?.let { rg["albumGain"] = it }
+  dec("REPLAYGAIN_ALBUM_PEAK")?.let { rg["albumPeak"] = it }
+  values["R128_TRACK_GAIN"]?.trim()?.toIntOrNull()?.let { rg["r128Track"] = it }
+  values["R128_ALBUM_GAIN"]?.trim()?.toIntOrNull()?.let { rg["r128Album"] = it }
+  if (rg.isNotEmpty()) t["rg"] = rg
+}
+
 /** One open file: its bytes, the system's word on it, and what only the platform reads. */
 interface OpenFile : ByteSource, Closeable {
   fun stat(): Stat
@@ -176,6 +196,7 @@ class FileProbe(private val io: ProbeIo, private val art: ArtSink) : FileReader 
     )
     // The genre tag as it is: the core cuts it into genres (web/js/genres.js); none, no key.
     meta.genre?.takeIf { it.isNotBlank() }?.let { t["genres"] = listOf(it) }
+    sortAndGain(tags.values, t)
     return Probe(
       Probe.Outcome.OK,
       Facts.of(

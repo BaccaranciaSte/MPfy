@@ -385,4 +385,36 @@ class TagReaderTest {
       assertEquals(v["name"] as String, v["format"], TagReader.sniff(head))
     }
   }
+
+  @Test
+  fun sortTagsAndGainsAreReadInEveryContainer() {
+    // ID3v2.3: TSOP, TSOT and a TXXX of ReplayGain; a TXXX of anything else is left.
+    val tag = Bytes.id3(
+      3,
+      Bytes.frame(3, "TSOP", Bytes.of(0, "Beatles, The")),
+      Bytes.frame(3, "TSOT", Bytes.of(0, "Kokoro", 0)),
+      Bytes.frame(3, "TXXX", Bytes.of(0, "replaygain_track_gain", 0, "-6.52 dB")),
+      Bytes.frame(3, "TXXX", Bytes.of(0, "MOOD", 0, "allegro")),
+    )
+    val v = read(Bytes.of(tag, Bytes.fill(200, 1)), "mp3").values
+    assertEquals(mapOf("ARTISTSORT" to "Beatles, The", "TITLESORT" to "Kokoro", "REPLAYGAIN_TRACK_GAIN" to "-6.52 dB"), v)
+    // Vorbis comments, any case.
+    val flac = Bytes.of(
+      "fLaC",
+      Bytes.block(0, Bytes.streamInfo(44100, 16)),
+      Bytes.block(4, Bytes.comments("ALBUMSORT=Album, The", "R128_TRACK_GAIN=-1234", "replaygain_album_peak=0.98"), last = true),
+      Bytes.fill(100, 2),
+    )
+    assertEquals(mapOf("ALBUMSORT" to "Album, The", "R128_TRACK_GAIN" to "-1234", "REPLAYGAIN_ALBUM_PEAK" to "0.98"), read(flac, "flac").values)
+    // MP4: soaa, and a freeform iTunes item.
+    val soaa = Bytes.box("soaa", Bytes.data(1, "Artisti, Vari".toByteArray()))
+    val free = Bytes.box("----", Bytes.box("mean", ByteArray(4), "com.apple.iTunes".toByteArray()), Bytes.box("name", ByteArray(4), "replaygain_track_peak".toByteArray()), Bytes.data(1, "0.5".toByteArray()))
+    val ilst = Bytes.box("ilst", soaa, free)
+    val m4a = Bytes.of(Bytes.box("ftyp", "M4A ".toByteArray()), Bytes.box("moov", Bytes.box("udta", Bytes.box("meta", ByteArray(4), ilst))))
+    assertEquals(mapOf("ALBUMARTISTSORT" to "Artisti, Vari", "REPLAYGAIN_TRACK_PEAK" to "0.5"), read(m4a, "m4a").values)
+    // Into the facts: the numbers parsed, sort names as they are.
+    val t = linkedMapOf<String, Any?>()
+    sortAndGain(v + mapOf("R128_ALBUM_GAIN" to " 512 ", "REPLAYGAIN_ALBUM_GAIN" to "n/a"), t)
+    assertEquals(mapOf("artistSort" to "Beatles, The", "titleSort" to "Kokoro", "rg" to mapOf("trackGain" to -6.52, "r128Album" to 512)), t)
+  }
 }
