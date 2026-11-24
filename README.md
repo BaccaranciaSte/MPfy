@@ -31,7 +31,7 @@ Una fonte di casa regge comodamente una famiglia. Ho testato su uno Xiaomi Mi A2
 
 I brani, le playlist, le chat e i commenti risiedono sulla fonte e sui propri dispositivi. Le chat sono cifrate in modo che nemmeno la fonte possa leggerle.
 
-Se è attivo "Cerca i dettagli in rete", per i brani a cui manca qualcosa partono delle richieste ad AcoustID, MusicBrainz, Cover Art Archive e LRCLIB, con l'impronta audio, la durata, titolo, artista e album. Mai il file, il nome di chi ascolta o il dispositivo.
+Se è attivo "Cerca i dettagli in rete", per i brani a cui manca qualcosa partono delle richieste ad AcoustID, MusicBrainz, Cover Art Archive e LRCLIB, con l'impronta audio, la durata, titolo, artista e album. Per i brani senza genere nei tag parte solo una ricerca su MusicBrainz con titolo, artista, album e durata, senza impronta audio. Se MusicBrainz non conosce i generi dell'artista, si chiedono a Wikidata con il solo identificativo dell'artista. Mai il file, il nome di chi ascolta o il dispositivo.
 
 La chiave di AcoustID dentro la fonte vale solo per uso non commerciale. Per ogni altro uso serve una chiave propria, che si imposta con `node server/index.mjs acoustid-key <chiave>`.
 
