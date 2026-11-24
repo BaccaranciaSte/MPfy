@@ -20,7 +20,9 @@
 //                            default seed is the input's sha24; "gap": [fromHz,
 //                            toHz] leaves that part of the band out; frequencies
 //                            are at the rate asked with -ar (44.1 kHz without)
-//     "pcmFor": { "<sha24 of the input>": { ...the same } } }
+//     "pcmFor": { "<sha24 of the input>": { ...the same } },
+//     "loudness": [lufs, peak]   what ebur128 says of every input ([-9.5, -0.3] without),
+//     "loudnessFor": { "<sha24>": [lufs, peak] | "none" } }
 // Every call appends one JSON line { args, start, end } to fake-ffmpeg-calls.log
 // when it ends, and { args, start } to fake-ffmpeg-started.log once it has read
 // its control (next to this file too).
@@ -169,6 +171,12 @@ setTimeout(() => {
     const ar = args.indexOf('-ar') === -1 ? RATE : Number(args[args.indexOf('-ar') + 1])
     process.stdout.write(pcm(input, ac, ar), () => finish(0))
     return
+  }
+  if (args.some((a) => a.startsWith('ebur128'))) {
+    const v = (control.loudnessFor || {})[sha24()] || control.loudness || [-9.5, -0.3]
+    if (v === 'none') return process.stderr.write('no summary\n', () => finish(0))
+    const text = '[Parsed_ebur128_0 @ 0x1] Summary:\n\n  Integrated loudness:\n    I:         ' + v[0].toFixed(1) + ' LUFS\n    Threshold: ' + (v[0] - 10).toFixed(1) + ' LUFS\n\n  Loudness range:\n    LRA:         5.0 LU\n\n  Sample peak:\n    Peak:      ' + v[1].toFixed(1) + ' dBFS\n'
+    return process.stderr.write(text, () => finish(0))
   }
   let data
   if (args.includes('-sseof')) {

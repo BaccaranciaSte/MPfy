@@ -139,6 +139,7 @@ export class AdmissionLimiter {
  * @param {number} [opts.detailsPollMs]  how often source.json is looked at for the switch
  * @param {() => number} [opts.detailsNow]  the clock of the lookup records (tests)
  * @param {number[]} [opts.detailsBackoff]  the pauses after a 429 or 503 (tests)
+ * @param {boolean} [opts.loudnessScan=true]  measure the loudness of the tracks whose tags have none (ffmpeg)
  * @param {boolean} [opts.detailsGenres=true]  ask MusicBrainz the genres of the tracks whose tags have none
  * @param {number} [opts.detailsRetryBaseMs]  the first wait before a failed lookup runs again (tests)
  * @param {number[]} [opts.detailsOfflinePause]  the waits while the network gives no answer (tests)
@@ -191,6 +192,7 @@ export async function createMPfy ({
   detailsRetryBaseMs,
   detailsOfflinePause,
   detailsGenres = true,
+  loudnessScan = true,
   socialNow,
   socialDelays = {},
   lyricsUrl = null,
@@ -265,6 +267,7 @@ export async function createMPfy ({
     backgroundDelayMs,
     disk,
     fingerprints,
+    loudnessScan: loudnessScan !== false,
     // A track from before whose tags were just read may be missing details now.
     onTagless: (track) => details.request(track.id, LOOKUP_PRIORITY.BACKGROUND)
   })

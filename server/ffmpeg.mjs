@@ -76,6 +76,25 @@ export function coverArgs (input, px, output) {
 }
 
 /**
+ * Arguments of a loudness measure: the whole first audio stream through ebur128 (EBU R128, the
+ * sample peak), nothing written. Its summary comes last on stderr (loudnessOf reads it).
+ */
+export function loudnessArgs (input) {
+  return ['-nostdin', '-hide_banner', '-nostats', '-v', 'info', '-i', input, '-map', '0:a:0', '-vn', '-af', 'ebur128=peak=sample', '-f', 'null', '-']
+}
+
+/** The integrated loudness (LUFS) and the sample peak (dBFS) of ebur128's summary, or null. */
+export function loudnessOf (stderr) {
+  const at = String(stderr || '').lastIndexOf('Summary:')
+  if (at < 0) return null
+  const s = stderr.slice(at)
+  const i = /\bI:\s*(-?\d+(?:\.\d+)?)\s*LUFS/.exec(s)
+  const p = /\bPeak:\s*(-?\d+(?:\.\d+)?)\s*dBFS/.exec(s)
+  if (!i) return null
+  return { lufs: Number(i[1]), peak: p ? Number(p[1]) : null }
+}
+
+/**
  * The last 120 s of a file as mono WAV (the tail check before a replacement).
  * `-t` caps the output too: a header that lies about the length makes -sseof
  * start far from the end.

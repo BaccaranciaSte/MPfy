@@ -23,7 +23,8 @@ const jobCalls = (fake) => fake.calls().filter((c) => !c.args.includes('-encoder
 const rateOf = (call) => (call.args.includes('libopus') ? call.args[call.args.indexOf('-b:a') + 1] : call.args.includes('f32le') ? 'quality' : 'cover')
 
 // `dir`: a data dir the test made (and handed to cleanup(t).dir) to restart on.
-async function start (t, { control = {}, cap, dir = null, ffmpeg } = {}) {
+// `loudness`: the loudness measure runs too (off: the tests that count the jobs).
+async function start (t, { control = {}, cap, dir = null, ffmpeg, loudness = false } = {}) {
   const c = cleanup(t)
   const work = c.dir(tmpDir('mpfy-ff-'))
   const fake = fakeFfmpeg(work, control)
@@ -35,6 +36,7 @@ async function start (t, { control = {}, cap, dir = null, ffmpeg } = {}) {
     p2p: false,
     debounceMs: 10,
     ffmpeg: ffmpeg === undefined ? fake.command : ffmpeg,
+    loudnessScan: loudness,
     ...(cap !== undefined ? { transcodeCapBytes: cap } : {})
   }))
   await app.jobsStarted
@@ -446,4 +448,21 @@ test('cover id: the same picture with other metadata is one cover, another pictu
   const broken = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe1, 0xff, 0xff]), Buffer.from('short')])
   assert.deepEqual(coverHashParts(broken, 'jpg'), [broken])
   assert.match(saveCoverBytes(broken, dir), /^[0-9a-f]{24}$/)
+})
+
+test('loudness: a track its tags say nothing of is measured whole with ebur128 after its other jobs; ReplayGain tags spare the measure; the answer carries it', async (t) => {
+  const { app, port, fake, upload } = await start(t, { loudness: true, control: { loudness: [-8.1, -0.2] } })
+  const rg = (k, v) => ['TXXX', Buffer.concat([Buffer.from([0]), Buffer.from(k, 'latin1'), Buffer.from([0]), Buffer.from(v, 'latin1')])]
+  const plain = await upload('a.mp3', makeMp3({ frames: 60, title: 'Uno', artist: 'A', album: 'B' }))
+  const tagged = await upload('b.mp3', makeMp3({ frames: 70, title: 'Due', artist: 'A', album: 'B', extraFrames: [rg('replaygain_track_gain', '-4.20 dB'), rg('replaygain_track_peak', '0.891251')] }))
+  await app.jobs.idle()
+  assert.deepEqual(app.library.getTrack(plain.id).loud, { lufs: -8.1, peak: -0.2, album: null, from: 'scan' })
+  assert.deepEqual(app.library.getTrack(tagged.id).loud, { lufs: -13.8, peak: -1, album: null, from: 'tag' })
+  const calls = fake.calls()
+  const measures = calls.filter((c) => c.args.some((a) => a.startsWith('ebur128')))
+  assert.equal(measures.length, 1, 'only the track with no tag for it')
+  assert.ok(calls.indexOf(measures[0]) === calls.length - 1, 'last of its jobs')
+  assert.deepEqual(measures[0].args.slice(-8), ['-map', '0:a:0', '-vn', '-af', 'ebur128=peak=sample', '-f', 'null', '-'])
+  const lib = json(await request(port, 'GET', '/api/library'))
+  assert.deepEqual(lib.tracks.find((x) => x.id === plain.id).loud, { lufs: -8.1, peak: -0.2, album: null, from: 'scan' })
 })

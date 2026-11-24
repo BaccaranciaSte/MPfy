@@ -59,6 +59,8 @@ import { transcodeArgs, coverArgs } from './ffmpeg.mjs'
 import { sniffImage, readAudio, sniffAudio, buildTrack, taglessOf, HEAD_BYTES } from './media.mjs'
 import { signatureOf } from './fingerprint.mjs'
 import { applyQuality, measureQuality, skipsAnalysis, wantsQualityCheck } from './quality.mjs'
+import { loudnessArgs, loudnessOf } from './ffmpeg.mjs'
+import { loudFromScan } from '../web/js/loudness.js'
 import { renameSyncRetry, removeAside, isBusy, unlinkQuietAsync, log, logError } from './util.mjs'
 import { CODE, isCardAway } from './places.mjs'
 
@@ -97,6 +99,9 @@ export function isSkipped (track, level) {
   return LEVELS[level] * 1000 >= SKIP_RATIO * bitrate
 }
 
+// A loudness measure decodes the whole file: an hour-long mix on a slow phone included.
+const LOUDNESS_TIMEOUT = 15 * 60 * 1000
+
 export class MediaJobs {
   /**
    * @param {object} opts
@@ -114,7 +119,7 @@ export class MediaJobs {
    */
   constructor ({
     library, ffmpeg = null, capBytes = 10 * 1024 ** 3, backgroundDelayMs = 0, disk = null, fingerprints = null,
-    stickyMs = STICKY_MS, restartStickyMs = RESTART_STICKY_MS, onTagless = () => {}, busyRetryMs = BUSY_RETRY_MS, lyricsTags = null
+    stickyMs = STICKY_MS, restartStickyMs = RESTART_STICKY_MS, onTagless = () => {}, busyRetryMs = BUSY_RETRY_MS, lyricsTags = null, loudnessScan = true
   }) {
     this.library = library
     this.ffmpeg = ffmpeg
@@ -125,6 +130,8 @@ export class MediaJobs {
     this.stickyMs = stickyMs
     this.restartStickyMs = restartStickyMs
     this.onTagless = onTagless
+    // The loudness measure of the tracks whose tags have none (off in the tests that count ffmpeg calls).
+    this.loudnessScan = loudnessScan
     this.busyRetryMs = busyRetryMs
     this.lyricsTags = lyricsTags
     this.dir = library.transcodesDir
@@ -146,6 +153,7 @@ export class MediaJobs {
     this._busy = new Map() // transcode key -> { tries, timer }: its name was held, made again later
     this._sticky = new Map() // "<who>|<id>|<q>" -> { level, at, active }, least recently used first
     this._tagsTried = new Set()
+    this._loudTried = new Set()
     this._idleWaiters = []
     // Moves at every job queued (or raised) above the background: a long job of
     // the background steps aside when it changes.
@@ -274,6 +282,7 @@ export class MediaJobs {
     for (const track of tracks) if (track.fpState === 'none') this.requestFingerprint(track, PRIORITY.BACKGROUND)
     for (const track of tracks) if (track.sampleRate === null || track.tagless === null || track.genres === null) this.requestTags(track, PRIORITY.BACKGROUND)
     for (const track of tracks) this.requestQuality(track, PRIORITY.BACKGROUND)
+    for (const track of tracks) this.requestLoudness(track)
     if (only === null) for (const coverId of this.library.embeddedCoverIds()) this.requestCoverSizes(coverId, PRIORITY.BACKGROUND)
     for (const track of tracks) this._queueLevels(track, PRIORITY.BACKGROUND)
     if (only === null && this.moves !== null) this.moves.kick()
@@ -286,6 +295,16 @@ export class MediaJobs {
   }
 
   /** Queued: the quality analysis of a track not analysed by this version. */
+  /**
+   * Queued, last of all: the loudness of a track its tags say nothing of (the whole file through
+   * ffmpeg's ebur128). Not before its tags were read again (they may have it). Once per start.
+   */
+  requestLoudness (track, priority = PRIORITY.BACKGROUND) {
+    if (!this.ffmpegAvailable || !this.loudnessScan || track.loud !== null || track.genres === null) return
+    if (this._loudTried.has(track.id) || !this._originalHere(track)) return
+    this._enqueue({ key: 'l:' + track.id, type: 'loudness', id: track.id, priority })
+  }
+
   requestQuality (track, priority = PRIORITY.BACKGROUND) {
     if (!this.ffmpegAvailable || !wantsQualityCheck(track) || !this._originalHere(track)) return
     this._enqueue({ key: 'q:' + track.id, type: 'quality', id: track.id, priority })
@@ -502,6 +521,7 @@ export class MediaJobs {
   onUpload (track) {
     if (track.coverId) this.requestCoverSizes(track.coverId, PRIORITY.UPLOAD)
     this.requestQuality(track, PRIORITY.UPLOAD)
+    this.requestLoudness(track)
     this._queueLevels(track, PRIORITY.UPLOAD)
     if (this.moves !== null) this.moves.note()
   }
@@ -621,7 +641,7 @@ export class MediaJobs {
     this._queued.delete(job.key)
     this._running = job
     job.stop = new AbortController()
-    const run = { transcode: this._runTranscode, cover: this._runCover, fingerprint: this._runFingerprint, quality: this._runQuality, tags: this._runTags, lyrics: this._runLyrics, move: this._runMove }[job.type]
+    const run = { transcode: this._runTranscode, cover: this._runCover, fingerprint: this._runFingerprint, quality: this._runQuality, loudness: this._runLoudness, tags: this._runTags, lyrics: this._runLyrics, move: this._runMove }[job.type]
     const work = run.call(this, job)
     job.work = work.catch((err) => logError('media job ' + job.key + ' crashed: ' + (err && err.stack ? err.stack : err)))
       .finally(() => {
@@ -738,6 +758,30 @@ export class MediaJobs {
     this.stats.qualityChecks++
   }
 
+  async _runLoudness (job) {
+    const track = this.library.getTrack(job.id)
+    if (track === null || !this.ffmpegAvailable || track.loud !== null || this._loudTried.has(job.id)) return
+    this._loudTried.add(job.id)
+    const fileHash = track.fileHash
+    let measured = null
+    try {
+      const { stderr } = await this.library.withLocalFile(track, (file) => this.ffmpeg.run(loudnessArgs(file), { stderr: true, quiet: true, timeoutMs: LOUDNESS_TIMEOUT, signal: job.stop.signal }), { signal: job.stop.signal })
+      measured = loudnessOf(stderr)
+    } catch (err) {
+      if (await this._cutByCard(err, track)) {
+        this._loudTried.delete(job.id)
+        return
+      }
+      if (this._closed || job.stop.signal.aborted) return
+      logError('loudness of ' + track.id + ' not measured: ' + (err && err.message))
+      return
+    }
+    const now = this.library.getTrack(job.id)
+    if (this._closed || job.stop.signal.aborted || now === null || now.fileHash !== fileHash || now.loud !== null) return
+    const loud = measured === null ? null : loudFromScan(measured.lufs, measured.peak)
+    if (loud !== null) this.library.setTrack({ ...now, loud })
+  }
+
   async _runTags (job) {
     const track = this.library.getTrack(job.id)
     if (track === null || this._tagsTried.has(job.id)) return
@@ -779,6 +823,7 @@ export class MediaJobs {
       this.stats.tags++
       // Its tags read again: what it misses, its genres included, may be looked up now.
       if (tagless || genresRead) this.onTagless(saved)
+      if (genresRead) this.requestLoudness(saved)
     } catch (err) {
       if (await this._cutByCard(err, track)) {
         this._tagsTried.delete(job.id)

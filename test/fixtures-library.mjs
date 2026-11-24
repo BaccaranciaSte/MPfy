@@ -199,7 +199,7 @@ class Run {
       fpcalc = this.fp.command
     }
     this.app = await createMPfy({
-      dataDir: this.dir, port: 0, adminPort: 0, p2p: false, debounceMs: 10, name: 'Fonte di prova', ffmpeg, fpcalc, sevenZip: null, whoIs: testWhoIs, ...rest
+      dataDir: this.dir, port: 0, adminPort: 0, p2p: false, debounceMs: 10, name: 'Fonte di prova', ffmpeg, fpcalc, sevenZip: null, whoIs: testWhoIs, loudnessScan: false, ...rest
     })
     await this.app.jobsStarted
     await this.app.songsStarted
