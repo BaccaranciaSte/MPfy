@@ -1120,7 +1120,10 @@ export class Details {
     }
     const now = this.library.getTrack(track.id)
     if (now === null || now.fileHash !== track.fileHash || !wantsGenres(now)) return
-    const g = { v: 1, gv: GENRES_V, state, at: this.now(), tries, fileHash: now.fileHash, genres }
+    // A try that failed (MusicBrainz busy) keeps what the last answer for this file gave, an older
+    // version's included, until a new one comes.
+    const last = now.genreLookup && now.genreLookup.fileHash === now.fileHash ? now.genreLookup.genres : []
+    const g = { v: 1, gv: GENRES_V, state, at: this.now(), tries, fileHash: now.fileHash, genres: state === 'failed' && last.length > 0 ? last : genres }
     this.library.setTrack({ ...now, genreLookup: g })
     const retry = this._genresRetryDue(g)
     if (retry !== null) this._scheduleRetry(retry)

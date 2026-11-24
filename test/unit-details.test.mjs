@@ -1377,4 +1377,12 @@ test('details: a track whose tags have no genre gets its genres from MusicBrainz
   app.details.fill()
   await app.details.idle()
   assert.equal(svc.requests.length, before)
+  // Asked again (an older version's answer) while MusicBrainz is busy: what it had stays.
+  const u = app.library.getTrack(ids.Uno)
+  app.library.setTrack({ ...u, genreLookup: { ...u.genreLookup, gv: 1 } })
+  svc.answers.mbStatus = Array(40).fill(503)
+  app.details.fill()
+  await app.details.idle()
+  assert.equal(app.library.getTrack(ids.Uno).genreLookup.state, 'failed')
+  assert.deepEqual(shown('Uno'), ['j-pop', 'pop', 'city pop', 'soundtrack', 'musical'])
 })
