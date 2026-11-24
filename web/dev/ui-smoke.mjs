@@ -1694,6 +1694,14 @@ async function evenVolume(vp) {
   await sleep(600);
   const back = await evaluate(`const o = { norm: mpfy.player.volumeNorm, out: mpfy.player.outputVolume }; mpfy.player.pause(); return o;`);
   check(back.norm === true && Math.abs(back.out - 0.5012) < 0.001, `${tag} on again: lower again (${JSON.stringify(back)})`);
+  // An album as an album: its loud song and its quiet one at one volume; the same two elsewhere at their own.
+  const two = await evaluate(`const al = [...mpfy.store.d.albums.values()].find((a) => a.name === 'Città di sale');
+    const ids = al.trackIds.slice(0, 2);
+    const at = async (ctx, list, i) => { mpfy.player.playContext(ctx, list, i); await new Promise((r) => setTimeout(r, 1200)); return mpfy.player.outputVolume; };
+    const out = { album: [await at({ type: 'album', id: al.id }, al.trackIds, 0), await at({ type: 'album', id: al.id }, al.trackIds, 1)], list: [await at({ type: 'search', id: 'x' }, ids, 0), await at({ type: 'search', id: 'x' }, ids, 1)] };
+    mpfy.player.pause();
+    return out;`);
+  check(two.album[0] === two.album[1] && two.album[0] > 0.5012 && two.album[0] < 1 && Math.abs(two.list[0] - 0.5012) < 0.001 && two.list[1] === 1, `${tag} an album as an album: one volume for its loud and its quiet song; in a list each at its own (${JSON.stringify(two)})`);
 }
 
 /**

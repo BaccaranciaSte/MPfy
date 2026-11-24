@@ -463,6 +463,8 @@ function buildCatalog() {
         ...(ai === 5 && ti === 0 ? { genres: ['Jazz'] } : {}),
         // The first album measured 6 dB over the target: it plays at half the amplitude.
         ...(ai === 0 ? { loud: { lufs: -8, peak: -0.5, album: null, from: 'scan' } } : {}),
+        // An album with a loud song and a quiet one (the album mode plays them at one volume).
+        ...(ai === 1 && ti < 2 ? { loud: { lufs: ti === 0 ? -8 : -14, peak: -1, album: null, from: 'scan' } } : {}),
         // Sorted without its article, as the sort tags do.
         ...(a.artist === 'Gli Scogli' ? { sort: { artist: 'Scogli' } } : {}),
         trackNo: ti + 1,

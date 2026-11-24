@@ -31,7 +31,7 @@
 import { store } from './store.js';
 import { absUrl, srcApi } from './api.js';
 import { versionsFor, candidates, coverHref, versionKey, offsetBetween } from './media.js';
-import { gainOf } from './loudness.js';
+import { gainOf, albumLufs } from './loudness.js';
 import { fingerprints } from './fingerprints.js';
 import { bridgeVersion } from './native.js';
 import { sources } from './sources.js';
@@ -236,12 +236,36 @@ function volumeNorm() {
     return true;
   }
 }
-/** The volume a version plays at (1: as it is). */
+/**
+ * The volume a version plays at (1: as it is). An album played as an album plays at one volume,
+ * its own (the album's tag, else its songs' together): its quiet songs stay quieter than its loud
+ * ones, as it was mixed. Anywhere else each song plays at its own.
+ */
 function gainFor(songId, v) {
   if (!volumeNorm()) return 1;
   const song = store.track(songId);
   const ver = song && Array.isArray(song.versions) ? song.versions.find((x) => x.trackId === v.trackId && x.sourceId === v.sourceId) : null;
-  return gainOf(ver && ver.t ? ver.t.loud : song ? song.loud : null);
+  const loud = ver && ver.t ? ver.t.loud : song ? song.loud : null;
+  if (!loud || st.context?.type !== 'album') return gainOf(loud);
+  const album = loud.album !== null && loud.album !== undefined ? loud.album : albumLoudness(store.d.albumOf.get(songId));
+  return album === null ? gainOf(loud) : gainOf({ ...loud, album }, { album: true });
+}
+
+// The loudness of an album from its songs, made again only after the store moved.
+const albumMemo = new Map();
+let albumMemoSeq = null;
+function albumLoudness(albumId) {
+  const seq = typeof store.changed === 'function' ? store.changed().seq : null;
+  if (seq === null || seq !== albumMemoSeq) {
+    albumMemo.clear();
+    albumMemoSeq = seq;
+  }
+  if (albumMemo.has(albumId)) return albumMemo.get(albumId);
+  const al = store.d.albums.get(albumId);
+  const songs = al ? al.trackIds.map((id) => store.track(id)).filter((t) => t && t.loud) : [];
+  const v = albumLufs(songs.map((t) => ({ lufs: t.loud.lufs, seconds: t.duration })));
+  albumMemo.set(albumId, v);
+  return v;
 }
 const withGains = (id, versions) => versions.map((v) => ({ ...v, gain: gainFor(id, v) }));
 

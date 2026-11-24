@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { loudFromTags, loudFromScan, validLoud, gainOf, TARGET_LUFS } from '../web/js/loudness.js'
+import { loudFromTags, loudFromScan, validLoud, gainOf, albumLufs, TARGET_LUFS } from '../web/js/loudness.js'
 
 test('loudness from the tags: ReplayGain against -18 LUFS, R128 (Q7.8) against -23, the peak in dBFS', () => {
   assert.deepEqual(loudFromTags({ trackGain: -6.52, trackPeak: 0.988 }), { lufs: -11.48, peak: -0.1, album: null, from: 'tag' })
@@ -25,4 +25,11 @@ test('the volume plays every song at the target, only ever down', () => {
   assert.equal(gainOf({ lufs: -20, peak: -6, album: null, from: 'tag' }), 1, 'quieter: never raised')
   assert.equal(gainOf({ lufs: -8, peak: null, album: -11, from: 'tag' }, { album: true }), 0.7079, 'the album\'s when asked')
   assert.equal(gainOf(null), 1)
+})
+
+test('an album\'s loudness: its songs\' energy averaged by length', () => {
+  assert.equal(albumLufs([{ lufs: -10, seconds: 200 }, { lufs: -10, seconds: 100 }]), -10)
+  assert.equal(albumLufs([{ lufs: -8, seconds: 100 }, { lufs: -14, seconds: 100 }]), -10.04)
+  assert.equal(albumLufs([{ lufs: -8, seconds: 300 }, { lufs: -20, seconds: 100 }]), -9.16)
+  assert.equal(albumLufs([{ lufs: null, seconds: 100 }, { lufs: -9, seconds: 0 }]), null)
 })

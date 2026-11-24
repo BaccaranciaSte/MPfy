@@ -44,6 +44,21 @@ export function loudFromScan (lufs, peak) {
   return { lufs: round(lufs), peak: inPeak(peak) ? round(peak) : null, album: null, from: 'scan' }
 }
 
+/**
+ * The loudness of an album from its songs' ({ lufs, seconds }): their energy averaged by length,
+ * as one long track would measure. Null with none.
+ */
+export function albumLufs (songs) {
+  let e = 0
+  let s = 0
+  for (const x of songs) {
+    if (!inLufs(x.lufs) || !fin(x.seconds) || x.seconds <= 0) continue
+    e += x.seconds * 10 ** (x.lufs / 10)
+    s += x.seconds
+  }
+  return s > 0 ? round(10 * Math.log10(e / s)) : null
+}
+
 /** A stored loudness as it should be, or null. */
 export function validLoud (l) {
   if (!l || typeof l !== 'object' || !inLufs(l.lufs) || (l.from !== 'tag' && l.from !== 'scan')) return null
