@@ -139,6 +139,7 @@ export class AdmissionLimiter {
  * @param {number} [opts.detailsPollMs]  how often source.json is looked at for the switch
  * @param {() => number} [opts.detailsNow]  the clock of the lookup records (tests)
  * @param {number[]} [opts.detailsBackoff]  the pauses after a 429 or 503 (tests)
+ * @param {boolean} [opts.detailsGenres=true]  ask MusicBrainz the genres of the tracks whose tags have none
  * @param {number} [opts.detailsRetryBaseMs]  the first wait before a failed lookup runs again (tests)
  * @param {number[]} [opts.detailsOfflinePause]  the waits while the network gives no answer (tests)
  * @param {() => number} [opts.socialNow]  the clock of the social part (tests)
@@ -189,6 +190,7 @@ export async function createMPfy ({
   detailsBackoff,
   detailsRetryBaseMs,
   detailsOfflinePause,
+  detailsGenres = true,
   socialNow,
   socialDelays = {},
   lyricsUrl = null,
@@ -295,7 +297,8 @@ export async function createMPfy ({
     ...(detailsNow ? { now: detailsNow } : {}),
     ...(detailsBackoff ? { backoff: detailsBackoff } : {}),
     ...(detailsRetryBaseMs ? { retryBaseMs: detailsRetryBaseMs } : {}),
-    ...(detailsOfflinePause ? { offlinePause: detailsOfflinePause } : {})
+    ...(detailsOfflinePause ? { offlinePause: detailsOfflinePause } : {}),
+    genres: detailsGenres !== false
   })
 
   let transport = null

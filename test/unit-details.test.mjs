@@ -58,7 +58,7 @@ async function start (t, { svc = null, fp = {}, ff = null, dir = null, opts = {}
   const services = svc || await fakeServices()
   const app = c.close(await createMPfy({
     dataDir, port: 0, adminPort: 0, p2p: false, debounceMs: 10, ffmpeg, fpcalc: fpcalc.command, sevenZip: null, whoIs: testWhoIs,
-    detailsUrls: services.urls, detailsFillDelayMs: 50, detailsPace: FAST, detailsPollMs: 100, ...opts
+    detailsUrls: services.urls, detailsFillDelayMs: 50, detailsPace: FAST, detailsPollMs: 100, detailsGenres: false, ...opts
   }))
   if (svc === null) c.close(services)
   await app.jobsStarted
@@ -1311,4 +1311,53 @@ test('details: a duplicate inside an archive that changes the album is looked up
   assert.ok(st.coverId)
   assert.equal(tr.coverId, st.coverId, 'the archive cover, like its other tracks')
   assert.equal(svc.of('caa').filter((x) => x.path.includes(RELEASE.shinu)).length, 0, 'no cover asked from the network for it')
+})
+
+test('details: a track whose tags have no genre gets its genres from MusicBrainz by text: the recording\'s, else its album\'s, else its artist\'s, each album and artist asked once; a genre tag wins and sends nothing; no fingerprint leaves', { timeout: 60000 }, async (t) => {
+  const svc = await fakeServices()
+  const queries = []
+  svc.answers.mbSearch = (q) => {
+    queries.push(q)
+    const m = /dur:\[(\d+) TO (\d+)\]/.exec(q)
+    const length = m ? (Number(m[1]) + Number(m[2])) / 2 : 0
+    const title = /recording:"([^"]+)"/.exec(q)[1]
+    const id = { Uno: 'r1', Due: 'r2', Tre: 'r3', Quattro: 'r4' }[title]
+    return { recordings: id ? [{ id, score: 100, title, length, 'artist-credit': [{ name: 'Artista' }] }] : [] }
+  }
+  const credit = [{ name: 'Artista', joinphrase: '', artist: { id: 'a1', name: 'Artista' } }]
+  const rel = (rg) => [{ id: 'rel-' + rg, title: 'Album', status: 'Official', 'release-group': { id: rg, title: 'Album', 'primary-type': 'Album' } }]
+  svc.answers.mb = {
+    'recording/r1': { id: 'r1', title: 'Uno', 'artist-credit': credit, releases: rel('g1'), genres: [{ name: 'pop', count: 1 }, { name: 'j-pop', count: 3 }, { name: 'nessuno', count: 0 }] },
+    'recording/r2': { id: 'r2', title: 'Due', 'artist-credit': credit, releases: rel('g1'), genres: [] },
+    'recording/r3': { id: 'r3', title: 'Tre', 'artist-credit': credit, releases: rel('g1') },
+    'recording/r4': { id: 'r4', title: 'Quattro', 'artist-credit': credit, releases: rel('g2') },
+    'release-group/g1': { id: 'g1', genres: [{ name: 'city pop', count: 2 }] },
+    'release-group/g2': { id: 'g2', genres: [] },
+    'artist/a1': { id: 'a1', genres: [{ name: 'soundtrack', count: 5 }, { name: 'musical', count: 4 }, { name: 'pop', count: 1 }, { name: 'jazz', count: 1 }] }
+  }
+  const { app, upload } = await start(t, { svc, opts: { detailsGenres: true } })
+  cleanup(t).close(svc)
+  const tcon = (g) => [['TCON', Buffer.concat([Buffer.from([0]), Buffer.from(g, 'latin1')])]]
+  const mp3 = (title, n, genre = null) => makeMp3({ frames: 2000, title, artist: 'Artista', album: 'Album', cover: fakePng(n), extraFrames: genre ? tcon(genre) : [] })
+  const ids = {}
+  for (const [title, n, genre] of [['Uno', 1], ['Due', 2], ['Tre', 3], ['Quattro', 4], ['Cinque', 5, 'Rock']]) ids[title] = (await upload(title + '.mp3', mp3(title, n, genre))).id
+  await app.details.idle()
+  const shown = (title) => app.library.publicTrack(app.library.getTrack(ids[title])).genres
+  assert.deepEqual(shown('Uno'), ['j-pop', 'pop'], 'the recording\'s, most voted first, none with no vote')
+  assert.deepEqual(shown('Due'), ['city pop'], 'none on the recording: its album\'s')
+  assert.deepEqual(shown('Tre'), ['city pop'])
+  assert.deepEqual(shown('Quattro'), ['soundtrack', 'musical', 'jazz'], 'none on its album either: its artist\'s, three at most')
+  assert.deepEqual(shown('Cinque'), ['Rock'], 'the tag')
+  assert.equal(app.library.getTrack(ids.Cinque).genreLookup, undefined)
+  assert.ok(!queries.some((q) => q.includes('Cinque')), 'a track with a genre tag is never sent')
+  const mb = svc.of('musicbrainz').map((r) => r.path)
+  assert.equal(mb.filter((p) => p.startsWith('/ws/2/release-group/g1')).length, 1, 'an album asked once')
+  assert.equal(mb.filter((p) => p.startsWith('/ws/2/artist/a1')).length, 1, 'an artist asked once')
+  assert.equal(svc.of('acoustid').length, 0, 'no fingerprint for the genres')
+  // Nothing else of a track changes, and once answered it is not asked again.
+  assert.equal(app.library.getTrack(ids.Uno).lookup, undefined)
+  const before = svc.requests.length
+  app.details.fill()
+  await app.details.idle()
+  assert.equal(svc.requests.length, before)
 })

@@ -2339,8 +2339,11 @@ export class Library {
     const out = {}
     for (const k of PUBLIC_FIELDS) out[k] = t[k] === undefined ? null : t[k]
     if (out.fp !== null) out.fp = { d: t.fp.d, b: t.fp.b, s: t.fp.s }
-    // Only when it has some: an answer without genres stays as it was before them.
+    // Only when it has some: an answer without genres stays as it was before them. The tags'
+    // first, else what MusicBrainz gave for this very file.
+    const gl = t.genreLookup
     if (t.genres && t.genres.length > 0) out.genres = t.genres
+    else if (gl && gl.fileHash === t.fileHash && gl.genres.length > 0) out.genres = gl.genres
     out.qualities = { ...this.qualitiesOf(t) }
     const lyrics = this.lyricsOf(t.id)
     if (lyrics !== null) out.lyrics = lyrics
@@ -3056,8 +3059,18 @@ function storedTrack (t, legacy, fp) {
   const lookup = validLookup(t.lookup)
   if (lookup !== null) out.lookup = lookup
   else delete out.lookup
+  const genreLookup = validGenreLookup(t.genreLookup)
+  if (genreLookup !== null) out.genreLookup = genreLookup
+  else delete out.genreLookup
   out.score = scoreOf(out)
   return out
+}
+
+// The genres MusicBrainz gave a track whose tags have none (details.mjs): null when not valid.
+function validGenreLookup (g) {
+  if (!g || typeof g !== 'object' || g.v !== 1 || (g.state !== 'done' && g.state !== 'failed')) return null
+  if (!Number.isFinite(g.at) || !Number.isInteger(g.tries) || g.tries < 1 || !isTrackId(g.fileHash)) return null
+  return { v: 1, state: g.state, at: g.at, tries: g.tries, fileHash: g.fileHash, genres: Array.isArray(g.genres) ? splitGenres(g.genres) : [] }
 }
 
 function validLookup (l) {

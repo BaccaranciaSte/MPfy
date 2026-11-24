@@ -31,6 +31,7 @@ import { albumIdOf, isCoverId } from './ids.mjs'
 import { saveCoverBytes, sniffImage, MAX_COVER_BYTES, UNKNOWN_ARTIST, UNKNOWN_ALBUM, TAGLESS_FIELDS } from './media.mjs'
 import { writeJsonAtomicSync, readJsonFile, log, logError } from './util.mjs'
 import { differentVersions } from './versions.mjs'
+import { splitGenres } from '../web/js/genres.js'
 
 // The source's own AcoustID application key (not a secret).
 export const ACOUSTID_KEY = 'hGPpwA4BVI'
@@ -294,6 +295,24 @@ export function missingFields (t, values = null, hasCustomCover = () => false) {
     if (!hasCustomCover('album', albumIdOf(after))) out.push('cover')
   }
   return out
+}
+
+// ---------------------------------------------------------------- genres
+
+const MB_GENRES = 3
+
+/** The genres MusicBrainz gives an entity: the most voted first (none with no vote), at most 3, cleaned. */
+export function mbGenres (entity) {
+  const list = entity && Array.isArray(entity.genres) ? entity.genres : []
+  const voted = list
+    .filter((g) => g && typeof g.name === 'string' && !(typeof g.count === 'number' && g.count <= 0))
+    .sort((a, b) => (b.count || 0) - (a.count || 0) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+  return splitGenres(voted.slice(0, 2 * MB_GENRES).map((g) => g.name)).slice(0, MB_GENRES)
+}
+
+/** A track whose tags were read and have no genre: its genres are asked of MusicBrainz. */
+export function wantsGenres (t) {
+  return Array.isArray(t.genres) && t.genres.length === 0
 }
 
 /** Does this track start a lookup (a title, artist, album or cover missing)? */
@@ -608,7 +627,7 @@ export class Details {
    * @param {number} [deps.retryBaseMs]  the first wait before a failed lookup is tried again (tests)
    * @param {number[]} [deps.offlinePause]  the waits while no service answers (tests)
    */
-  constructor ({ library, source, fingerprints, dataDir, urls, userAgent, onCover = () => {}, fillDelayMs = FILL_DELAY_MS, pace = PACE, pollMs = POLL_MS, now = Date.now, backoff = BACKOFF, retryBaseMs = RETRY_BASE_MS, offlinePause = OFFLINE_PAUSE }) {
+  constructor ({ library, source, fingerprints, dataDir, urls, userAgent, onCover = () => {}, fillDelayMs = FILL_DELAY_MS, pace = PACE, pollMs = POLL_MS, now = Date.now, backoff = BACKOFF, retryBaseMs = RETRY_BASE_MS, offlinePause = OFFLINE_PAUSE, genres = true }) {
     this.library = library
     this.source = source
     this.fingerprints = fingerprints
@@ -620,6 +639,11 @@ export class Details {
     this.now = now
     this.retryBaseMs = retryBaseMs
     this.offlinePause = offlinePause
+    // The genres of the tracks whose tags have none: asked by text (title, artist, album), never
+    // with a fingerprint; the genres of an album and of an artist asked once.
+    this.genresOn = genres
+    this._rgGenres = new Map()
+    this._artistGenres = new Map()
     this.file = path.join(path.resolve(dataDir), 'details.json')
     this.pacers = { acoustid: new Pacer(pace.acoustid, backoff), musicbrainz: new Pacer(pace.musicbrainz, backoff), caa: new Pacer(pace.caa, backoff) }
     this.stats = { requests: 0, lookups: 0 }
@@ -732,8 +756,26 @@ export class Details {
     return missingFields(t, null, this._hasCustomCover()).length > 0
   }
 
-  /** Should this track be looked up now? */
+  /** Should this track be looked up now (for its missing fields, or for its genres)? */
   due (t) {
+    return this._mainDue(t) || this._genresDue(t)
+  }
+
+  // Its genres: tags with none, and no answer for this file yet (a failed one: in its time).
+  _genresDue (t) {
+    if (!this.genresOn || !wantsGenres(t)) return false
+    const g = t.genreLookup
+    if (!g || g.fileHash !== t.fileHash) return true
+    const at = this._genresRetryDue(g)
+    return at !== null && this.now() >= at
+  }
+
+  _genresRetryDue (g) {
+    if (g.state !== 'failed' || g.tries >= MAX_TRIES) return null
+    return g.at + this.retryBaseMs * 2 ** (g.tries - 1)
+  }
+
+  _mainDue (t) {
     const l = t.lookup
     // Its album changed (`stale`, library.mjs): looked up again for whatever is missing.
     if (l && l.stale === true) return this._missing(t)
@@ -765,6 +807,8 @@ export class Details {
       const l = t.lookup
       const at = l && l.fileHash === t.fileHash ? this._retryDue(l) : null
       if (at !== null && this._missing(t)) next = Math.min(next, at)
+      const g = this.genresOn && wantsGenres(t) && t.genreLookup && t.genreLookup.fileHash === t.fileHash ? this._genresRetryDue(t.genreLookup) : null
+      if (g !== null) next = Math.min(next, g)
     }
     this._scheduleRetry(next)
     this._pump()
@@ -869,7 +913,11 @@ export class Details {
   async _run (job) {
     const id = job.id
     const track = this.library.getTrack(id)
-    if (track === null || !this._enabled || !this.due(track)) return
+    if (track === null || !this._enabled) return
+    if (!this._mainDue(track)) {
+      if (this._genresDue(track)) await this._runGenres(job, track)
+      return
+    }
     this.stats.lookups++
     const started = track.lookup
     const previous = started && started.fileHash === track.fileHash && started.stale !== true ? started : null
@@ -932,7 +980,10 @@ export class Details {
       release: result.release || null,
       filled
     }
+    // The genres the recording's answer brought (only for a track whose tags have none).
+    if (Array.isArray(result.genres)) next.genreLookup = { v: 1, state: 'done', at: this.now(), tries: 1, fileHash: now.fileHash, genres: result.genres }
     this.library.setTrack(next)
+    if (this._genresDue(next)) this._enqueue(next.id, PRIORITY.BACKGROUND)
     if (found.includes('cover')) this.onCover(values.cover)
     else if (result.coverId) this.library.dropCoverIfUnused(result.coverId)
     const retry = this._retryDue(next.lookup)
@@ -978,7 +1029,8 @@ export class Details {
     }
     ctx.recording = recordingId
     // The recording and its release.
-    const recording = await this._mb('/ws/2/recording/' + encodeURIComponent(recordingId) + '?inc=releases+release-groups+media+artist-credits&fmt=json', ctx)
+    const withGenres = this.genresOn && wantsGenres(track)
+    const recording = await this._mb('/ws/2/recording/' + encodeURIComponent(recordingId) + '?inc=releases+release-groups+media+artist-credits' + (withGenres ? '+genres' : '') + '&fmt=json', ctx)
     if (recording === null) return this._nothing(ctx)
     const releases = Array.isArray(recording.releases) ? recording.releases : []
     let release = null
@@ -1003,6 +1055,14 @@ export class Details {
     }
     const values = valuesOf(recording, release, positions)
     const found = { acoustid: ctx.acoustid || null, recording: recordingId, release: release ? release.id : null, values }
+    if (withGenres) {
+      try {
+        found.genres = await this._genresFor(recording, release, ctx)
+      } catch (err) {
+        // The album's or the artist's genres failed: the genres lookup asks again on its own.
+        if (!(err instanceof LookupFailed)) throw err
+      }
+    }
     let coverId = null
     if (release !== null && missingFields(track, values, this._hasCustomCover()).includes('cover')) {
       const rg = release['release-group'] && typeof release['release-group'].id === 'string' ? release['release-group'].id : null
@@ -1019,6 +1079,81 @@ export class Details {
 
   _nothing (ctx) {
     return { state: ctx.keySkipped ? 'failed' : 'nothing', acoustid: ctx.acoustid || null, recording: null, release: null, values: null, coverId: null }
+  }
+
+  // The genres of a track whose tags have none: written as `genreLookup` (done, or failed and
+  // tried again in its time like a lookup). Nothing else of the track changes.
+  async _runGenres (job, track) {
+    this.stats.genres = (this.stats.genres || 0) + 1
+    const prev = track.genreLookup && track.genreLookup.fileHash === track.fileHash ? track.genreLookup : null
+    const tries = prev !== null && prev.state === 'failed' ? prev.tries + 1 : 1
+    this._abort = new AbortController()
+    const ctx = { throttled: 0, signal: this._abort.signal, answered: false, keySkipped: false }
+    let state = 'done'
+    let genres = []
+    try {
+      genres = await this._lookupGenres(track, ctx)
+    } catch (err) {
+      if (err instanceof Stopped || this._closed || !this._enabled) return
+      if (err instanceof Offline) return this._wait(job)
+      if (!(err instanceof LookupFailed)) logError('genres of ' + track.id + ': ' + (err && err.message))
+      state = 'failed'
+      genres = []
+    } finally {
+      this._abort = null
+    }
+    const now = this.library.getTrack(track.id)
+    if (now === null || now.fileHash !== track.fileHash || !wantsGenres(now)) return
+    const g = { v: 1, state, at: this.now(), tries, fileHash: now.fileHash, genres }
+    this.library.setTrack({ ...now, genreLookup: g })
+    const retry = this._genresRetryDue(g)
+    if (retry !== null) this._scheduleRetry(retry)
+  }
+
+  // The recording: the one a lookup found, else the text search (title, artist, album). No
+  // fingerprint leaves for the genres.
+  async _lookupGenres (track, ctx) {
+    const l = track.lookup
+    let recordingId = l && l.fileHash === track.fileHash && typeof l.recording === 'string' ? l.recording : null
+    const albumHint = track.album && track.album !== UNKNOWN_ALBUM ? track.album : null
+    if (recordingId === null) {
+      const hints = hintsOf(track)
+      const ms = typeof track.duration === 'number' ? Math.round(track.duration * 1000) : null
+      if (!hints.usable || ms === null) return []
+      const answer = await this._mb('/ws/2/recording?query=' + encodeURIComponent(searchQuery(hints, ms)) + '&fmt=json&limit=10', ctx)
+      const found = answer === null ? null : chooseFromSearch(answer, hints, ms)
+      if (found === null) return []
+      recordingId = found.id
+    }
+    const recording = await this._mb('/ws/2/recording/' + encodeURIComponent(recordingId) + '?inc=genres+releases+release-groups+artist-credits&fmt=json', ctx)
+    if (recording === null) return []
+    const releases = Array.isArray(recording.releases) ? recording.releases : []
+    let release = chooseRelease(releases, albumHint)
+    if (!releaseFits(release, albumHint, releases)) release = null
+    return this._genresFor(recording, release, ctx)
+  }
+
+  // The recording's genres, else its album's (the release group), else its first artist's.
+  async _genresFor (recording, release, ctx) {
+    let g = mbGenres(recording)
+    if (g.length > 0) return g
+    const rg = release && release['release-group'] && typeof release['release-group'].id === 'string' ? release['release-group'].id : null
+    if (rg !== null) {
+      g = await this._cachedGenres(this._rgGenres, 'release-group', rg, ctx)
+      if (g.length > 0) return g
+    }
+    const credits = Array.isArray(recording['artist-credit']) ? recording['artist-credit'] : []
+    const artist = credits[0] && credits[0].artist && typeof credits[0].artist.id === 'string' ? credits[0].artist.id : null
+    return artist === null ? [] : this._cachedGenres(this._artistGenres, 'artist', artist, ctx)
+  }
+
+  async _cachedGenres (cache, kind, id, ctx) {
+    if (cache.has(id)) return cache.get(id)
+    const answer = await this._mb('/ws/2/' + kind + '/' + encodeURIComponent(id) + '?inc=genres&fmt=json', ctx)
+    const g = answer === null ? [] : mbGenres(answer)
+    if (cache.size >= 5000) cache.clear()
+    cache.set(id, g)
+    return g
   }
 
   // The compressed fingerprint: from the raw one stored at upload, else fpcalc.

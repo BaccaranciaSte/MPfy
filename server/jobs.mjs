@@ -766,14 +766,16 @@ export class MediaJobs {
         next.editedUnknown = true
         changed = true
       }
-      if (now.genres === null) {
+      const genresRead = now.genres === null
+      if (genresRead) {
         next.genres = fresh.genres
         changed = true
       }
       if (!changed) return
       const saved = this.library.setTrack(next)
       this.stats.tags++
-      if (tagless) this.onTagless(saved)
+      // Its tags read again: what it misses, its genres included, may be looked up now.
+      if (tagless || genresRead) this.onTagless(saved)
     } catch (err) {
       if (await this._cutByCard(err, track)) {
         this._tagsTried.delete(job.id)
