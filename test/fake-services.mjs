@@ -13,6 +13,7 @@
 //   mbStatus: [...]                   statuses to answer first
 //   caa: { "release/<id>" | "release-group/<id>": Buffer | <number status> }
 //     an image is served through a 307 to /img/..., like the real one
+//   wikidata: { "<ids>|<props>": <JSON> }   a wbgetentities answer, by its ids and props
 //   drop: ['acoustid', ...]           those services close every connection unanswered (no network)
 //   hold: { caa: <Promise> }          that service answers once the promise settles (recorded at once)
 
@@ -21,7 +22,7 @@ import { listenServer, closeServer } from './helpers.mjs'
 
 export async function fakeServices () {
   const requests = []
-  const answers = { acoustid: {}, acoustidStatus: [], acoustidError: null, mb: {}, mbSearch: null, mbStatus: [], caa: {}, drop: [], hold: {} }
+  const answers = { acoustid: {}, acoustidStatus: [], acoustidError: null, mb: {}, mbSearch: null, mbStatus: [], caa: {}, wikidata: {}, drop: [], hold: {} }
   const servers = {}
   const urls = {}
 
@@ -49,6 +50,11 @@ export async function fakeServices () {
       const answer = answers.mb[rest + url.search] !== undefined ? answers.mb[rest + url.search] : answers.mb[rest]
       if (answer === undefined) return send(res, 404, { error: 'Not Found' })
       if (typeof answer === 'number') return send(res, answer, { error: 'status ' + answer })
+      return send(res, 200, answer)
+    },
+    wikidata (req, res, url) {
+      const answer = answers.wikidata[url.searchParams.get('ids') + '|' + url.searchParams.get('props')]
+      if (answer === undefined) return send(res, 404, { error: 'Not Found' })
       return send(res, 200, answer)
     },
     caa (req, res, url) {

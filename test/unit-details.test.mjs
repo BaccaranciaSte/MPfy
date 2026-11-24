@@ -23,7 +23,7 @@ import { fakeServices } from './fake-services.mjs'
 const body = (r) => json(r)
 const fixture = (name) => JSON.parse(fs.readFileSync(new URL('./fixtures/details/' + name + '.json', import.meta.url), 'utf8'))
 const UA = 'MPfy/' + JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version + ' ( https://github.com/BaccaranciaSte/MPfy )'
-const FAST = { acoustid: 0, musicbrainz: 0, caa: 0 }
+const FAST = { acoustid: 0, musicbrainz: 0, caa: 0, wikidata: 0 }
 const REC = {
   shinu: 'a97992ca-5d3d-4ce9-bab1-e631360c618b',
   aizo: '4c819955-e6b3-491a-b951-f9a766db02ac',
@@ -1340,7 +1340,13 @@ test('details: a track whose tags have no genre gets its genres from MusicBrainz
     ['artist?query=' + encodeURIComponent('artist:"SPITZ" OR alias:"SPITZ" OR sortname:"SPITZ"') + '&fmt=json&limit=5']: { artists: [{ id: 'g1x', name: 'SPITZ', score: 100 }, { id: 'jp1', name: 'Supittsu', 'sort-name': 'Spitz', score: 100 }] },
     'artist/g1x': { id: 'g1x', genres: [{ name: 'grime', count: 2 }] },
     'recording/r9': { id: 'r9', title: 'Nove', 'artist-credit': [{ name: 'Supittsu', joinphrase: '', artist: { id: 'jp1', name: 'Supittsu' } }], releases: rel('g3'), genres: [{ name: 'j-rock', count: 2 }] },
-    'artist/jp1': { id: 'jp1', genres: [{ name: 'j-pop', count: 5 }] }
+    'artist/jp1': { id: 'jp1', genres: [{ name: 'j-pop', count: 5 }] },
+    ['artist?query=' + encodeURIComponent('artist:"natori" OR alias:"natori" OR sortname:"natori"') + '&fmt=json&limit=5']: { artists: [{ id: 'a5', name: 'natori', score: 100 }] },
+    'artist/a5': { id: 'a5', genres: [], relations: [{ type: 'wikidata', url: { resource: 'https://www.wikidata.org/wiki/Q555' } }] }
+  }
+  svc.answers.wikidata = {
+    'Q555|claims': { entities: { Q555: { claims: { P136: [{ mainsnak: { datavalue: { value: { id: 'Q131578' } } } }, { mainsnak: { datavalue: { value: { id: 'Q11399' } } } }] } } } },
+    'Q131578|Q11399|labels': { entities: { Q131578: { labels: { en: { value: 'J-pop' } } }, Q11399: { labels: { en: { value: 'rock music' } } } } }
   }
   const { app, upload } = await start(t, { svc, opts: { detailsGenres: true } })
   cleanup(t).close(svc)
@@ -1352,6 +1358,8 @@ test('details: a track whose tags have no genre gets its genres from MusicBrainz
   // name two artists answer to.
   ids.Otto = (await upload('Otto.mp3', makeMp3({ frames: 2000, title: 'Otto', artist: 'SPITZ', album: 'Disco', cover: fakePng(8) }))).id
   ids.Nove = (await upload('Nove.mp3', makeMp3({ frames: 2000, title: 'Nove', artist: 'SPITZ', album: 'Disco', cover: fakePng(9) }))).id
+  // An artist with no genres on MusicBrainz: those of its Wikidata item.
+  ids.Dieci = (await upload('Dieci.mp3', makeMp3({ frames: 2000, title: 'Dieci', artist: 'natori', album: 'Disco', cover: fakePng(10) }))).id
   for (const [title, n] of [['Sei', 6], ['Sette', 7]]) ids[title] = (await upload(title + '.mp3', makeMp3({ frames: 2000, title, artist: 'Mr.Children, Ospite', album: 'Disco', cover: fakePng(n) }))).id
   await app.details.idle()
   const shown = (title) => app.library.publicTrack(app.library.getTrack(ids[title])).genres
@@ -1364,7 +1372,9 @@ test('details: a track whose tags have no genre gets its genres from MusicBrainz
   assert.deepEqual(shown('Sei'), ['j-pop', 'j-rock'], 'a title MusicBrainz does not know: the artist by its name')
   assert.equal(shown('Otto'), undefined, 'a name two artists answer to, the song in neither: no genres rather than another artist\'s')
   assert.deepEqual(shown('Nove'), ['j-rock', 'j-pop'], 'the song found inside one of them: its genres and that artist\'s')
-  assert.equal(mb.filter((p) => p === '/ws/2/artist').length, 2, 'each name asked once')
+  assert.deepEqual(shown('Dieci'), ['J-pop', 'rock music'], 'no genres on MusicBrainz: its Wikidata item\'s, by their English names')
+  assert.equal(svc.of('wikidata').length, 2, 'the item and its genres\' names, once')
+  assert.equal(mb.filter((p) => p === '/ws/2/artist').length, 3, 'each name asked once')
   assert.deepEqual(shown('Cinque'), ['Rock'], 'the tag')
   assert.equal(app.library.getTrack(ids.Cinque).genreLookup, undefined)
   assert.ok(!queries.some((q) => q.includes('Cinque')), 'a track with a genre tag is never sent')

@@ -39,14 +39,16 @@ export const ACOUSTID_KEY_RE = /^[A-Za-z0-9]{6,64}$/
 export const DETAILS_URLS = Object.freeze({
   acoustid: 'https://api.acoustid.org',
   musicbrainz: 'https://musicbrainz.org',
-  caa: 'https://coverartarchive.org'
+  caa: 'https://coverartarchive.org',
+  // An artist's genres when MusicBrainz has none: the Wikidata item it links the artist to (CC0).
+  wikidata: 'https://www.wikidata.org'
 })
 // At least this long between two request starts, per service (ms).
-export const PACE = Object.freeze({ acoustid: 334, musicbrainz: 1000, caa: 1000 })
+export const PACE = Object.freeze({ acoustid: 334, musicbrainz: 1000, caa: 1000, wikidata: 1000 })
 export const PRIORITY = { UPLOAD: 0, BACKGROUND: 1 }
 
 const REQUEST_TIMEOUT = 20000
-const BODY_CAP = { acoustid: 1024 * 1024, musicbrainz: 4 * 1024 * 1024, caa: MAX_COVER_BYTES }
+const BODY_CAP = { acoustid: 1024 * 1024, musicbrainz: 4 * 1024 * 1024, caa: MAX_COVER_BYTES, wikidata: 4 * 1024 * 1024 }
 const BACKOFF = [5000, 10000, 20000, 40000, 60000]
 const THROTTLED_FAIL = 3
 const FILL_DELAY_MS = 60000
@@ -306,8 +308,9 @@ const MB_GENRES = 3
 // than one artist answers to gives nothing (it gave the first: a grime Spitz for the band). 4: the
 // song looked for inside each artist of that name (title, length, the artist's id): a credit
 // written in Latin letters (SPITZ, Aimyon) of an artist MusicBrainz names in Japanese. 5: the name
-// asked as a name, an alias or a sort name (artist: alone reaches the main name only).
-export const GENRES_V = 5
+// asked as a name, an alias or a sort name (artist: alone reaches the main name only). 6: an
+// artist with no genres on MusicBrainz takes those of its Wikidata item.
+export const GENRES_V = 6
 const MAX_SONG_GENRES = 5
 
 /** The first artist a credit names ("A, B", "A & B", "A feat. B": A). */
@@ -323,6 +326,17 @@ export function mbGenres (entity) {
     .filter((g) => g && typeof g.name === 'string' && !(typeof g.count === 'number' && g.count <= 0))
     .sort((a, b) => (b.count || 0) - (a.count || 0) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
   return splitGenres(voted.slice(0, 2 * MB_GENRES).map((g) => g.name)).slice(0, MB_GENRES)
+}
+
+/** The Wikidata item a MusicBrainz artist links to (its "wikidata" relation), or null. */
+export function wikidataOf (artist) {
+  const rels = artist && Array.isArray(artist.relations) ? artist.relations : []
+  for (const r of rels) {
+    const url = r && r.type === 'wikidata' && r.url && typeof r.url.resource === 'string' ? r.url.resource : ''
+    const m = /\/wiki\/(Q\d+)$/.exec(url)
+    if (m) return m[1]
+  }
+  return null
 }
 
 /** A track whose tags were read and have no genre: its genres are asked of MusicBrainz. */
@@ -660,8 +674,9 @@ export class Details {
     this._rgGenres = new Map()
     this._artistGenres = new Map()
     this._artistByName = new Map() // norm(name) -> the MusicBrainz artist ids it answers to
+    this._wdLabels = new Map() // a Wikidata genre item -> its English name, or null
     this.file = path.join(path.resolve(dataDir), 'details.json')
-    this.pacers = { acoustid: new Pacer(pace.acoustid, backoff), musicbrainz: new Pacer(pace.musicbrainz, backoff), caa: new Pacer(pace.caa, backoff) }
+    this.pacers = { acoustid: new Pacer(pace.acoustid, backoff), musicbrainz: new Pacer(pace.musicbrainz, backoff), caa: new Pacer(pace.caa, backoff), wikidata: new Pacer(pace.wikidata === undefined ? PACE.wikidata : pace.wikidata, backoff) }
     this.stats = { requests: 0, lookups: 0 }
 
     this._caa = new Map() // release mbid -> { coverId, at }
@@ -1164,7 +1179,7 @@ export class Details {
     if (rg !== null) lists.push(await this._cachedGenres(this._rgGenres, 'release-group', rg, ctx))
     const credits = Array.isArray(recording['artist-credit']) ? recording['artist-credit'] : []
     const artist = credits[0] && credits[0].artist && typeof credits[0].artist.id === 'string' ? credits[0].artist.id : null
-    if (artist !== null) lists.push(await this._cachedGenres(this._artistGenres, 'artist', artist, ctx))
+    if (artist !== null) lists.push(await this._artistGenresOf(artist, ctx))
     return splitGenres(lists.flat()).slice(0, MAX_SONG_GENRES)
   }
 
@@ -1187,7 +1202,7 @@ export class Details {
         if (found !== null) return this._genresOfRecording(found.id, track, ctx)
       }
     }
-    return ids.length === 1 ? this._cachedGenres(this._artistGenres, 'artist', ids[0], ctx) : []
+    return ids.length === 1 ? this._artistGenresOf(ids[0], ctx) : []
   }
 
   // The MusicBrainz artists a name answers to (three at most), each name asked once.
@@ -1207,6 +1222,46 @@ export class Details {
       this._artistByName.set(key, ids)
     }
     return ids
+  }
+
+  // An artist's genres: MusicBrainz's, else those of the Wikidata item it links the artist to (its
+  // "genre" statements, by their English names). Each artist asked once.
+  async _artistGenresOf (id, ctx) {
+    if (this._artistGenres.has(id)) return this._artistGenres.get(id)
+    const answer = await this._mb('/ws/2/artist/' + encodeURIComponent(id) + '?inc=genres+url-rels&fmt=json', ctx)
+    let g = answer === null ? [] : mbGenres(answer)
+    const qid = g.length === 0 && this.urls.wikidata ? wikidataOf(answer) : null
+    if (qid !== null) g = await this._wikidataGenres(qid, ctx)
+    if (this._artistGenres.size >= 5000) this._artistGenres.clear()
+    this._artistGenres.set(id, g)
+    return g
+  }
+
+  async _wikidataGenres (qid, ctx) {
+    const item = await this._wd('/w/api.php?action=wbgetentities&ids=' + qid + '&props=claims&format=json', ctx)
+    const claims = item && item.entities && item.entities[qid] && item.entities[qid].claims
+    const ids = (claims && Array.isArray(claims.P136) ? claims.P136 : [])
+      .map((c) => c && c.mainsnak && c.mainsnak.datavalue && c.mainsnak.datavalue.value && c.mainsnak.datavalue.value.id)
+      .filter((x) => typeof x === 'string' && /^Q\d+$/.test(x))
+      .slice(0, 2 * MB_GENRES)
+    if (ids.length === 0) return []
+    const missing = ids.filter((q) => !this._wdLabels.has(q))
+    if (missing.length > 0) {
+      const labels = await this._wd('/w/api.php?action=wbgetentities&ids=' + encodeURIComponent(missing.join('|')) + '&props=labels&languages=en&format=json', ctx)
+      if (this._wdLabels.size >= 5000) this._wdLabels.clear()
+      for (const q of missing) {
+        const l = labels && labels.entities && labels.entities[q] && labels.entities[q].labels && labels.entities[q].labels.en
+        this._wdLabels.set(q, l && typeof l.value === 'string' ? l.value : null)
+      }
+    }
+    return splitGenres(ids.map((q) => this._wdLabels.get(q)).filter(Boolean)).slice(0, MB_GENRES)
+  }
+
+  async _wd (pathAndQuery, ctx) {
+    const res = await this._call('wikidata', this.urls.wikidata + pathAndQuery, { headers: { Accept: 'application/json' } }, ctx)
+    if (res.status === 404) return null
+    if (res.status !== 200) throw new LookupFailed('Wikidata answered ' + res.status)
+    return parseJson(res.body)
   }
 
   async _cachedGenres (cache, kind, id, ctx) {

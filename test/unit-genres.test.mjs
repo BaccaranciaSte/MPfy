@@ -33,6 +33,8 @@ test('each genre has its family: the table, then the words in order, else Altro'
     'Smooth Jazz': 'jazz', 'Delta Blues': 'jazz', Baroque: 'classica', Opera: 'classica', 'Latin Pop': 'latino', Dancehall: 'latino',
     Afrobeat: 'mondo', Celtic: 'mondo', Zzzxq: 'altro',
     // As a real library tags them.
+    // As Wikidata names them.
+    'rock music': 'rock', 'hip hop music': 'hiphop', 'pop music': 'pop', 'anime song': 'colonne', 'kayōkyoku': 'pop', 'visual kei': 'rock', 'shibuya-kei': 'pop',
     Films: 'colonne', Film: 'colonne', Games: 'colonne', Videogiochi: 'colonne', 'Film Scores': 'colonne', 'Colonne sonore': 'colonne', 'Movie Soundtrack': 'colonne',
   }
   for (const [g, m] of Object.entries(want)) assert.equal(genreOf(g).macro, m, g)
@@ -40,6 +42,8 @@ test('each genre has its family: the table, then the words in order, else Altro'
 
 test('a genre the table does not hold is shown as written', () => {
   assert.deepEqual(of('Vaporwave'), ['Vaporwave', 'elettronica'])
+  assert.deepEqual(of('rock music'), ['Rock', 'rock'], 'the word music dropped when the genre is in the table')
+  assert.equal(genreOf('rock music').key, genreOf('Rock').key, 'one genre with its other name')
   assert.deepEqual(of('shoegaze'), ['Shoegaze', 'rock'])
   assert.equal(genreOf('   '), null)
   assert.equal(genreOf(null), null)
