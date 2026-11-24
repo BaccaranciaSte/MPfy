@@ -1321,6 +1321,7 @@ test('details: a track whose tags have no genre gets its genres from MusicBrainz
     const m = /dur:\[(\d+) TO (\d+)\]/.exec(q)
     const length = m ? (Number(m[1]) + Number(m[2])) / 2 : 0
     const title = /recording:"([^"]+)"/.exec(q)[1]
+    if (title === 'Nove') return { recordings: q.includes('arid:jp1') ? [{ id: 'r9', score: 100, title, length, 'artist-credit': [{ name: 'Supittsu' }] }] : [] }
     const id = { Uno: 'r1', Due: 'r2', Tre: 'r3', Quattro: 'r4' }[title]
     return { recordings: id ? [{ id, score: 100, title, length, 'artist-credit': [{ name: 'Artista' }] }] : [] }
   }
@@ -1337,7 +1338,9 @@ test('details: a track whose tags have no genre gets its genres from MusicBrainz
     artist: { artists: [{ id: 'a9', name: 'Mr. Children', score: 80 }, { id: 'a2', name: 'Mr.Children', 'sort-name': 'Mr.Children', score: 100 }] },
     'artist/a2': { id: 'a2', genres: [{ name: 'j-pop', count: 6 }, { name: 'j-rock', count: 3 }] },
     ['artist?query=' + encodeURIComponent('artist:"SPITZ"') + '&fmt=json&limit=5']: { artists: [{ id: 'g1x', name: 'SPITZ', score: 100 }, { id: 'jp1', name: 'Supittsu', 'sort-name': 'Spitz', score: 100 }] },
-    'artist/g1x': { id: 'g1x', genres: [{ name: 'grime', count: 2 }] }
+    'artist/g1x': { id: 'g1x', genres: [{ name: 'grime', count: 2 }] },
+    'recording/r9': { id: 'r9', title: 'Nove', 'artist-credit': [{ name: 'Supittsu', joinphrase: '', artist: { id: 'jp1', name: 'Supittsu' } }], releases: rel('g3'), genres: [{ name: 'j-rock', count: 2 }] },
+    'artist/jp1': { id: 'jp1', genres: [{ name: 'j-pop', count: 5 }] }
   }
   const { app, upload } = await start(t, { svc, opts: { detailsGenres: true } })
   cleanup(t).close(svc)
@@ -1348,6 +1351,7 @@ test('details: a track whose tags have no genre gets its genres from MusicBrainz
   // Two songs of an artist MusicBrainz knows only by name here (their titles romanized); one of a
   // name two artists answer to.
   ids.Otto = (await upload('Otto.mp3', makeMp3({ frames: 2000, title: 'Otto', artist: 'SPITZ', album: 'Disco', cover: fakePng(8) }))).id
+  ids.Nove = (await upload('Nove.mp3', makeMp3({ frames: 2000, title: 'Nove', artist: 'SPITZ', album: 'Disco', cover: fakePng(9) }))).id
   for (const [title, n] of [['Sei', 6], ['Sette', 7]]) ids[title] = (await upload(title + '.mp3', makeMp3({ frames: 2000, title, artist: 'Mr.Children, Ospite', album: 'Disco', cover: fakePng(n) }))).id
   await app.details.idle()
   const shown = (title) => app.library.publicTrack(app.library.getTrack(ids[title])).genres
@@ -1358,7 +1362,8 @@ test('details: a track whose tags have no genre gets its genres from MusicBrainz
   assert.deepEqual(shown('Tre'), ['city pop', 'soundtrack', 'musical', 'jazz'])
   assert.deepEqual(shown('Quattro'), ['soundtrack', 'musical', 'jazz'], 'none on its album either: its artist\'s')
   assert.deepEqual(shown('Sei'), ['j-pop', 'j-rock'], 'a title MusicBrainz does not know: the artist by its name')
-  assert.equal(shown('Otto'), undefined, 'a name two artists answer to: no genres rather than another artist\'s')
+  assert.equal(shown('Otto'), undefined, 'a name two artists answer to, the song in neither: no genres rather than another artist\'s')
+  assert.deepEqual(shown('Nove'), ['j-rock', 'j-pop'], 'the song found inside one of them: its genres and that artist\'s')
   assert.equal(mb.filter((p) => p === '/ws/2/artist').length, 2, 'each name asked once')
   assert.deepEqual(shown('Cinque'), ['Rock'], 'the tag')
   assert.equal(app.library.getTrack(ids.Cinque).genreLookup, undefined)

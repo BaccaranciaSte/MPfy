@@ -303,8 +303,10 @@ const MB_GENRES = 3
 // The version of the genres lookup: a track answered by an older one is asked again, once.
 // 2: the recording's, its album's and its artist's together; an artist found by name when the
 // recording is not (a romanized title of a song MusicBrainz has in its own script). 3: a name more
-// than one artist answers to gives nothing (it gave the first: a grime Spitz for the band).
-export const GENRES_V = 3
+// than one artist answers to gives nothing (it gave the first: a grime Spitz for the band). 4: the
+// song looked for inside each artist of that name (title, length, the artist's id): a credit
+// written in Latin letters (SPITZ, Aimyon) of an artist MusicBrainz names in Japanese.
+export const GENRES_V = 4
 const MAX_SONG_GENRES = 5
 
 /** The first artist a credit names ("A, B", "A & B", "A feat. B": A). */
@@ -656,7 +658,7 @@ export class Details {
     this.genresOn = genres
     this._rgGenres = new Map()
     this._artistGenres = new Map()
-    this._artistByName = new Map() // norm(name) -> MusicBrainz artist id, or null
+    this._artistByName = new Map() // norm(name) -> the MusicBrainz artist ids it answers to
     this.file = path.join(path.resolve(dataDir), 'details.json')
     this.pacers = { acoustid: new Pacer(pace.acoustid, backoff), musicbrainz: new Pacer(pace.musicbrainz, backoff), caa: new Pacer(pace.caa, backoff) }
     this.stats = { requests: 0, lookups: 0 }
@@ -1128,16 +1130,20 @@ export class Details {
   async _lookupGenres (track, ctx) {
     const l = track.lookup
     let recordingId = l && l.fileHash === track.fileHash && typeof l.recording === 'string' ? l.recording : null
-    const albumHint = track.album && track.album !== UNKNOWN_ALBUM ? track.album : null
     if (recordingId === null) {
       const hints = hintsOf(track)
       const ms = typeof track.duration === 'number' ? Math.round(track.duration * 1000) : null
-      if (!hints.usable || ms === null) return this._artistGenresByName(track, ctx)
+      if (!hints.usable || ms === null) return this._genresByArtistName(track, ctx)
       const answer = await this._mb('/ws/2/recording?query=' + encodeURIComponent(searchQuery(hints, ms)) + '&fmt=json&limit=10', ctx)
       const found = answer === null ? null : chooseFromSearch(answer, hints, ms)
-      if (found === null) return this._artistGenresByName(track, ctx)
+      if (found === null) return this._genresByArtistName(track, ctx)
       recordingId = found.id
     }
+    return this._genresOfRecording(recordingId, track, ctx)
+  }
+
+  async _genresOfRecording (recordingId, track, ctx) {
+    const albumHint = track.album && track.album !== UNKNOWN_ALBUM ? track.album : null
     const recording = await this._mb('/ws/2/recording/' + encodeURIComponent(recordingId) + '?inc=genres+releases+release-groups+artist-credits&fmt=json', ctx)
     if (recording === null) return []
     const releases = Array.isArray(recording.releases) ? recording.releases : []
@@ -1158,25 +1164,43 @@ export class Details {
     return splitGenres(lists.flat()).slice(0, MAX_SONG_GENRES)
   }
 
-  // No recording: the first artist of the song by its name (the same name, its sort name or an
-  // alias, a score of 95 at least), and that artist's genres; a name two artists answer to is no
-  // answer. Each name asked once.
-  async _artistGenresByName (track, ctx) {
+  // No recording by the credit's name: the artists of the song's first artist name (the same name,
+  // its sort name or an alias, a score of 95 at least), the song looked for inside each of them
+  // (title, length, the artist's id: a name in Latin letters of an artist MusicBrainz names in
+  // Japanese); none found: the artist's own genres when the name is one artist's, else nothing.
+  async _genresByArtistName (track, ctx) {
     const name = firstArtist(track.artist)
     if (name === null) return []
+    const ids = await this._artistsNamed(name, ctx)
+    if (ids.length === 0) return []
+    const hints = hintsOf(track)
+    const ms = typeof track.duration === 'number' ? Math.round(track.duration * 1000) : null
+    if (hints.usable && ms !== null) {
+      for (const id of ids) {
+        const q = searchQuery({ title: hints.title, artist: null }, ms) + ' AND arid:' + id
+        const answer = await this._mb('/ws/2/recording?query=' + encodeURIComponent(q) + '&fmt=json&limit=10', ctx)
+        const found = answer === null ? null : chooseFromSearch(answer, { ...hints, artist: null }, ms)
+        if (found !== null) return this._genresOfRecording(found.id, track, ctx)
+      }
+    }
+    return ids.length === 1 ? this._cachedGenres(this._artistGenres, 'artist', ids[0], ctx) : []
+  }
+
+  // The MusicBrainz artists a name answers to (three at most), each name asked once.
+  async _artistsNamed (name, ctx) {
     const key = norm(name)
-    let id = this._artistByName.get(key)
-    if (id === undefined) {
+    let ids = this._artistByName.get(key)
+    if (ids === undefined) {
       const q = 'artist:"' + name.replace(/[\\"]/g, (c) => '\\' + c) + '"'
       const answer = await this._mb('/ws/2/artist?query=' + encodeURIComponent(q) + '&fmt=json&limit=5', ctx)
       const list = answer && Array.isArray(answer.artists) ? answer.artists : []
       const same = (x) => typeof x === 'string' && norm(x) === key
       const hits = list.filter((a) => a && typeof a.id === 'string' && !(typeof a.score === 'number' && a.score < 95) && (same(a.name) || same(a['sort-name']) || (Array.isArray(a.aliases) && a.aliases.some((x) => x && same(x.name)))))
-      id = new Set(hits.map((a) => a.id)).size === 1 ? hits[0].id : null
+      ids = [...new Set(hits.map((a) => a.id))].slice(0, 3)
       if (this._artistByName.size >= 5000) this._artistByName.clear()
-      this._artistByName.set(key, id)
+      this._artistByName.set(key, ids)
     }
-    return id === null ? [] : this._cachedGenres(this._artistGenres, 'artist', id, ctx)
+    return ids
   }
 
   async _cachedGenres (cache, kind, id, ctx) {
