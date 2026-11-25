@@ -4,7 +4,7 @@
 export const BRAND = 'MPfy';
 
 /** Version of this web UI (shown in Impostazioni, Informazioni). */
-export const APP_VERSION = '1.1.3';
+export const APP_VERSION = '1.1.4';
 
 /**
  * Lowercase, strip diacritics and fold apostrophe look-alikes, for accent and case insensitive
