@@ -23,6 +23,7 @@
     }
   },
   "scripts": {
+    "postinstall": "node scripts/apply-patches.mjs",
     "server": "node server/index.mjs",
     "client": "node client-node/index.mjs",
     "test": "node --test --test-concurrency=2 \"test/*.test.mjs\"",
