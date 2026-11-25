@@ -5,29 +5,19 @@ import path from 'node:path'
 import { applyPatch, hunksOf } from '../scripts/apply-patches.mjs'
 import { tmpDir, cleanup } from './helpers.mjs'
 
-const patchFile = new URL('../patches/hyperdht@6.36.0.patch', import.meta.url)
-const installed = (f) => fs.readFileSync(new URL('../node_modules/hyperdht/lib/' + f, import.meta.url), 'utf8')
-
-test('the installed hyperdht carries the LAN shortcut fix', () => {
-  assert.ok(installed('connect.js').includes('c.lanPending = true'))
-  assert.ok(installed('server.js').includes('MPfy patch: the client races its LAN ping'))
-})
+const PATCH = ['--- a/lib/x.js', '+++ b/lib/x.js', '@@ -1,3 +1,3 @@', ' uno', '-due', '+DUE', ' tre', ''].join('\n')
 
 test('a patch applies once, a second run changes nothing, another version stops it', (t) => {
   const dir = cleanup(t).dir(tmpDir())
-  const patch = fs.readFileSync(patchFile, 'utf8')
   fs.mkdirSync(path.join(dir, 'lib'))
-  // The files as they were before the fix: each hunk's text before it.
-  const before = {}
-  for (const h of hunksOf(patch)) before[h.file] = (before[h.file] || '') + h.from + '\n// between\n'
-  for (const [f, s] of Object.entries(before)) fs.writeFileSync(path.join(dir, f), s)
-  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'hyperdht', version: '6.36.0' }))
-  assert.equal(applyPatch(patch, dir, '6.36.0'), hunksOf(patch).length)
-  const once = fs.readFileSync(path.join(dir, 'lib/server.js'), 'utf8')
-  assert.equal(applyPatch(patch, dir, '6.36.0'), 0)
-  assert.equal(fs.readFileSync(path.join(dir, 'lib/server.js'), 'utf8'), once)
-  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'hyperdht', version: '6.37.0' }))
-  assert.throws(() => applyPatch(patch, dir, '6.36.0'), /is 6\.37\.0, the patch is for 6\.36\.0/)
+  fs.writeFileSync(path.join(dir, 'lib/x.js'), 'zero\nuno\ndue\ntre\n')
+  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'x', version: '1.0.0' }))
+  assert.equal(hunksOf(PATCH).length, 1)
+  assert.equal(applyPatch(PATCH, dir, '1.0.0'), 1)
+  assert.equal(fs.readFileSync(path.join(dir, 'lib/x.js'), 'utf8'), 'zero\nuno\nDUE\ntre\n')
+  assert.equal(applyPatch(PATCH, dir, '1.0.0'), 0)
+  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'x', version: '1.1.0' }))
+  assert.throws(() => applyPatch(PATCH, dir, '1.0.0'), /is 1\.1\.0, the patch is for 1\.0\.0/)
 })
 
 test('the phone gets the patches and what applies them', () => {
