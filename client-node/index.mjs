@@ -365,7 +365,7 @@ export async function profileCommand (args, { statePath = DEFAULT_STATE, webRoot
     const target = file !== null ? file : path.resolve(folder, data.fileName)
     // It holds this PC's key and the profile secret: only for its owner.
     await writeProfileFile(target, JSON.stringify(data.identity, null, 2) + '\n')
-    return ['Profilo salvato in ' + target, 'Il file contiene l\'accesso alle tue fonti, tienilo per te.']
+    return ['Profilo salvato in ' + target]
   }
   throw new Error('uso: node client-node/index.mjs profile [new <nome> | import [file] | export [file]]')
 }

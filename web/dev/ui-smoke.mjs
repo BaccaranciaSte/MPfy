@@ -1006,7 +1006,7 @@ async function profilePages(vp) {
   await fetch(`${base}/__mock/core?syncMs=0`);
   await go(`${base}/impostazioni/profilo?nosw`, 1500);
   const rows = await text('.set-title-text');
-  check(rows === 'Nome | Codice del profilo | Esporta profilo | Recupero con password' && (await text('.set-note')) === "Chi ha questo codice entra nelle tue fonti come te. Passalo solo ai tuoi dispositivi." && (await text('.set-top-title')) === 'Profilo', `${tag} Profilo: ${rows}`);
+  check(rows === 'Nome | Codice del profilo | Esporta profilo | Recupero con password' && !(await evaluate(`return !!document.querySelector('.view .set-list .set-note');`)) && (await text('.set-top-title')) === 'Profilo', `${tag} Profilo: ${rows}`);
   check((await text('.set-row .set-sub')) === 'Bacca B | Disattivato', `${tag} Profilo subs: ${await text('.set-row .set-sub')}`);
   await overflowCheck(`${tag} profile`);
   await shot(`${tag}-profile`);

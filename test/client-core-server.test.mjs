@@ -1240,7 +1240,7 @@ test('client-node profile: new, show, export to a file, import from that file an
   assert.deepEqual(await profileCommand([], { ...pc, dht: node() }), ['Profilo: Bacca dal PC (' + id + ')', 'Recupero con password: disattivato'])
   const saved = await profileCommand(['export'], { ...pc, dht: node() })
   const file = path.join(pc.dir, 'Bacca dal PC.mpfy')
-  assert.deepEqual(saved, ['Profilo salvato in ' + file, 'Il file contiene l\'accesso alle tue fonti, tienilo per te.'])
+  assert.deepEqual(saved, ['Profilo salvato in ' + file])
   await running.stop()
   const text = fs.readFileSync(file, 'utf8')
   assert.ok(text.endsWith('}\n') && text.includes('\n  "format": "mpfy-identity",\n'), 'pretty printed, final newline')
@@ -1298,7 +1298,7 @@ function exportWithCli (file, { cwd, statePath }) {
   })
 }
 
-const savedLines = (file) => ['Profilo salvato in ' + file, 'Il file contiene l\'accesso alle tue fonti, tienilo per te.']
+const savedLines = (file) => ['Profilo salvato in ' + file]
 // What a folder holds, leaving out the files of the core that keeps its state there.
 const filesIn = (dir) => fs.readdirSync(dir).filter((n) => !n.startsWith('state.json')).sort()
 
