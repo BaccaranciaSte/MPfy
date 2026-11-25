@@ -389,7 +389,8 @@ const grouped = (vs) => songs.groupVersions(vs).map((g) => g.map((i) => `${vs[i]
       (this.ls[t] ||= []).push(f);
     }
     fire(t) {
-      for (const f of this.ls[t] || []) f();
+      // With the event: since gapless the backend listens on two elements and keeps the current one's.
+      for (const f of this.ls[t] || []) f({ type: t, target: this });
     }
     set src(u) {
       this.attrs.src = u;
