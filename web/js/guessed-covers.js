@@ -4,7 +4,7 @@
 // they show changes, so such a cover is pointed at the source here, once one is known: after a
 // change of the library and after a connection flip. Each address is tried once per cover.
 
-import { setCover } from '../components/cover.js';
+import { setCover, coverImages } from '../components/cover.js';
 import { coverHref } from './media.js';
 
 const guess = (src) => /[?&]cached=1(&|$)/.test(src || '');
@@ -26,9 +26,8 @@ export function redrawGuessedCovers(root = document) {
       continue;
     }
     const size = key.slice(0, bar);
-    const one = spec?.kind === 'img';
-    const id = one ? (size === 'large' ? spec.id : spec.small) : spec?.kind === 'mosaic' ? spec.ids[0] : null;
-    const href = id ? coverHref(id, one ? size : 'small') : null;
+    const first = coverImages(spec, size, el.dataset.tiles || size)[0];
+    const href = first ? coverHref(first.id, first.size) : null;
     if (!href || guess(href) || tried.get(el) === href) continue;
     tried.set(el, href);
     delete el.dataset.spec;

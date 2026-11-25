@@ -334,7 +334,10 @@ async function coverCacheFirst(event, coverId, size, cachedOnly) {
   } catch {
     return new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
   }
-  if (res.ok && res.type === 'basic') event.waitUntil(putCover(cache, key, res.clone(), size).catch(() => {}));
+  // An xl the source has not made yet comes as its large one, briefly cacheable: never kept here,
+  // or that cover would stay at 640 px on this device for good.
+  const standIn = size === 'xl' && !/immutable/.test(res.headers.get('Cache-Control') || '');
+  if (res.ok && res.type === 'basic' && !standIn) event.waitUntil(putCover(cache, key, res.clone(), size).catch(() => {}));
   return res;
 }
 
@@ -375,7 +378,8 @@ self.addEventListener('fetch', (event) => {
 
   const cover = COVER_PATH.exec(path);
   if (cover) {
-    const size = url.searchParams.get('size') === 'large' ? 'large' : 'small';
+    const asked = url.searchParams.get('size');
+    const size = asked === 'large' || asked === 'xl' ? asked : 'small';
     let id = cover[1];
     try {
       id = decodeURIComponent(id);

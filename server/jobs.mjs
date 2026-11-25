@@ -505,9 +505,9 @@ export class MediaJobs {
     this._enqueue({ key: 't:' + track.id + '.' + level, type: 'transcode', id: track.id, level, priority })
   }
 
-  requestCoverSizes (coverId, priority = PRIORITY.DEMAND) {
+  requestCoverSizes (coverId, priority = PRIORITY.DEMAND, sizes = COVER_SIZES) {
     if (!this.ffmpegAvailable || !coverId) return
-    for (const size of COVER_SIZES) {
+    for (const size of sizes) {
       if (fs.existsSync(this.library.sizedCoverPath(coverId, size))) continue
       this._enqueue({ key: 'c:' + coverId + '.' + size, type: 'cover', id: coverId, size, priority })
     }

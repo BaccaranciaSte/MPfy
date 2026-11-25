@@ -72,7 +72,7 @@ import path from 'node:path'
 import { HttpError } from './errors.mjs'
 import {
   isTrackId, isCoverId, isProfileId, AUDIO_FORMATS, LIBRARY_FILE_RE, COVER_FILE_RE, COVER_SIZED_RE,
-  COVER_EXTS, COVER_SIZES, trackFileName, isAlbumId
+  COVER_EXTS, COVER_SIZES, COVER_ASK_SIZES, trackFileName, isAlbumId
 } from './ids.mjs'
 import { readAudio, saveCover, buildTrack, sniffAudio, HEAD_BYTES, UNKNOWN_ARTIST, UNKNOWN_ALBUM, TAGLESS_FIELDS } from './media.mjs'
 import { CODECS, EQUIV_KBPS, codecOf, scoreOf, validCutoff, unanalysed } from './quality.mjs'
@@ -2427,7 +2427,7 @@ export class Library {
 
   /** covers/<coverId>.<size>.jpg (whether or not it exists). */
   sizedCoverPath (coverId, size) {
-    if (!isCoverId(coverId) || !COVER_SIZES.includes(size)) throw new Error('invalid cover id or size')
+    if (!isCoverId(coverId) || !COVER_ASK_SIZES.includes(size)) throw new Error('invalid cover id or size')
     return path.join(this.coversDir, coverId + '.' + size + '.jpg')
   }
 
@@ -2453,7 +2453,7 @@ export class Library {
   dropCoverIfUnused (coverId) {
     if (!coverId || !isCoverId(coverId) || this._coverInUse(coverId)) return
     for (const ext of COVER_EXTS) unlinkQuiet(path.join(this.coversDir, coverId + '.' + ext))
-    for (const size of COVER_SIZES) unlinkQuiet(this.sizedCoverPath(coverId, size))
+    for (const size of COVER_ASK_SIZES) unlinkQuiet(this.sizedCoverPath(coverId, size))
   }
 
   /** A new track whose file was committed on `place` (internal memory when not said). */

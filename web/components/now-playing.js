@@ -40,7 +40,7 @@ function build() {
   const more = iconBtn('moreV', 'Altre opzioni per il brano', () => openTrackMenu(player.currentTrack()));
   const head = h('header', { class: 'np-head' }, close, from, more);
 
-  const cover = coverEl(null, { cls: 'np-cover', size: 'large' });
+  const cover = coverEl(null, { cls: 'np-cover', size: 'xl' });
   const art = h('div', { class: 'np-art' }, cover);
 
   const title = marqueeBox('np-title');

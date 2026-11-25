@@ -47,8 +47,11 @@ export const COVER_KINDS = {
   playlist: isPlaylistId
 }
 export const COVER_SIZES = ['small', 'large']
+// The sizes a cover can be asked in (GET ?size=): also xl, for the Now Playing cover, which on a
+// phone is about 1100 px wide. Made only when asked; a custom cover has none and comes as it is.
+export const COVER_ASK_SIZES = ['small', 'large', 'xl']
 // Pixel size of the JPEG versions the server makes of embedded covers.
-export const COVER_PIXELS = { small: 160, large: 640 }
+export const COVER_PIXELS = { small: 160, large: 640, xl: 1280 }
 
 // Audio quality levels: Opus bitrates in kbps; max is the original.
 export const LEVELS = { low: 48, normal: 96, high: 160 }
@@ -73,8 +76,8 @@ export const COVER_MIME = { jpg: 'image/jpeg', png: 'image/png', webp: 'image/we
 export const LIBRARY_FILE_RE = /^([0-9a-f]{24})\.(mp3|aac|m4a|flac|ogg|opus|wav)$/
 // covers/<coverId>.<ext>
 export const COVER_FILE_RE = /^([0-9a-f]{24})\.(jpg|png|webp)$/
-// covers/<coverId>.small.jpg, covers/<coverId>.large.jpg (made by ffmpeg)
-export const COVER_SIZED_RE = /^([0-9a-f]{24})\.(small|large)\.jpg$/
+// covers/<coverId>.small.jpg, .large.jpg, .xl.jpg (made by ffmpeg)
+export const COVER_SIZED_RE = /^([0-9a-f]{24})\.(small|large|xl)\.jpg$/
 // transcodes/<trackId>.<level>.opus
 export const TRANSCODE_FILE_RE = /^([0-9a-f]{24})\.(low|normal|high)\.opus$/
 

@@ -505,6 +505,9 @@ test('covers: the core\'s art, then the host\'s, then a person cover; the ETag a
   r = await ask(phone, 'GET', '/api/cover/' + b + '?size=large', { headers: { 'If-None-Match': '"' + b + '.large"' } })
   assert.equal(r.status, 304)
   assert.equal((await ask(phone, 'GET', '/api/cover/' + b + '?size=small')).status, 404)
+  // xl, the sources' size for Now Playing: the phone has no such version, so its large one.
+  r = await ask(phone, 'GET', '/api/cover/' + b + '?size=xl')
+  assert.deepEqual([r.status, r.headers.ETag, r.body.equals(jpeg('host large'))], [200, '"' + b + '.large"', true])
   assert.equal((await ask(phone, 'GET', '/api/cover/' + b + '?size=huge')).status, 400)
   assert.equal((await ask(phone, 'GET', '/api/cover/xyz?size=small')).status, 404)
 })

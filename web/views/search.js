@@ -133,7 +133,8 @@ function genreCard(f) {
     'a',
     { class: 'browse-card genre-card', href: genreHref(f.id), 'data-link': '', style: { '--c': css(nameColor(f.name)) } },
     h('span', { class: 'browse-name' }, f.name),
-    coverEl(specs.playlist({ trackIds: f.trackIds }), { cls: 'browse-cover', size: 'large' })
+    // 68 px (96 on a computer): each piece of the mosaic is below the small image's 160 px.
+    coverEl(specs.playlist({ trackIds: f.trackIds }), { cls: 'browse-cover', size: 'large', tiles: 'small' })
   );
 }
 

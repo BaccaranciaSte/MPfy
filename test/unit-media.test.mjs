@@ -364,6 +364,20 @@ test('covers ?size=: the original until the JPEG versions exist, then them; a de
   assert.equal(r.headers['content-type'], 'image/png')
   assert.equal((await request(port, 'GET', '/api/cover/' + coverId + '?size=huge')).status, 400)
 
+  // xl (Now Playing): never made in the background; asked, the large one meanwhile, then its own.
+  assert.ok(!fs.existsSync(path.join(dir, 'covers', coverId + '.xl.jpg')), 'no xl before it is asked')
+  r = await request(port, 'GET', '/api/cover/' + coverId + '?size=xl')
+  assert.equal(r.status, 200)
+  assert.equal(r.headers.etag, '"' + coverId + '.large"', 'not made yet: the large one, not the original')
+  assert.equal(r.headers['cache-control'], 'private, max-age=600')
+  assert.ok(r.body.equals(fs.readFileSync(path.join(dir, 'covers', coverId + '.large.jpg'))))
+  await app.jobs.idle()
+  r = await request(port, 'GET', '/api/cover/' + coverId + '?size=xl')
+  assert.equal(r.headers['content-type'], 'image/jpeg')
+  assert.match(r.headers['cache-control'], /immutable/)
+  assert.equal(r.headers.etag, '"' + coverId + '.xl"')
+  assert.match(r.body.toString('latin1'), /min\(1280,/)
+
   // Delete a track while its jobs are queued: the running one finishes, the rest never run.
   const wav = await upload('via.wav', hiWav(900))
   await waitFor(() => app.jobs.busy && jobCalls(fake).length >= 0, { what: 'busy' })

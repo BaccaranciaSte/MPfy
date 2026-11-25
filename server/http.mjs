@@ -14,7 +14,7 @@ import { Writable, pipeline as pipeCallback } from 'node:stream'
 import { pipeline as pipeStreams } from 'node:stream/promises'
 import { HttpError, apiError } from './errors.mjs'
 import {
-  isTrackId, isCoverId, isPublicKey, isProfileId, albumIdOf, cleanUploadName, COVER_MIME, COVER_SIZES, QUALITY_NAMES
+  isTrackId, isCoverId, isPublicKey, isProfileId, albumIdOf, cleanUploadName, COVER_MIME, COVER_SIZES, COVER_ASK_SIZES, QUALITY_NAMES
 } from './ids.mjs'
 import { parseRange, UNSATISFIABLE } from './range.mjs'
 import { acceptsGzip, etagMatches } from './static.mjs'
@@ -875,19 +875,28 @@ export function createApiHandler (ctx) {
 
   async function cover (req, res, coverId, query) {
     const size = query.has('size') ? query.get('size') : null
-    if (size !== null && !COVER_SIZES.includes(size)) throw new HttpError(400, 'Dimensione non valida')
+    if (size !== null && !COVER_ASK_SIZES.includes(size)) throw new HttpError(400, 'Dimensione non valida')
     if (!isCoverId(coverId)) throw new HttpError(404, 'Copertina non trovata')
-    const found = library.coverPath(coverId, size)
+    let found = library.coverPath(coverId, size)
     if (found === null) throw new HttpError(404, 'Copertina non trovata')
-    const st = await statOrNull(found.file)
-    if (st === null) throw new HttpError(404, 'Copertina non trovata')
+    let sent = found.sized ? size : null
     let cache = IMMUTABLE
     if (size !== null && !found.sized && library.isEmbeddedCover(coverId)) {
-      // The resized version does not exist (yet): serve the original, and make it.
+      // The resized version does not exist (yet): serve the original, and make it. xl is made
+      // only when asked: the large one meanwhile, when there is one (an original may be a 5 MB PNG).
       cache = SIZE_FALLBACK_CACHE
-      ctx.jobs.requestCoverSizes(coverId)
+      if (size === 'xl') {
+        ctx.jobs.requestCoverSizes(coverId, undefined, ['xl'])
+        const large = library.coverPath(coverId, 'large')
+        if (large !== null && large.sized) {
+          found = large
+          sent = 'large'
+        }
+      } else ctx.jobs.requestCoverSizes(coverId)
     }
-    const tag = '"' + coverId + (found.sized ? '.' + size : '') + '"'
+    const st = await statOrNull(found.file)
+    if (st === null) throw new HttpError(404, 'Copertina non trovata')
+    const tag = '"' + coverId + (sent !== null ? '.' + sent : '') + '"'
     res.setHeader('Content-Type', COVER_MIME[found.ext])
     res.setHeader('Accept-Ranges', 'bytes')
     res.setHeader('Cache-Control', cache)

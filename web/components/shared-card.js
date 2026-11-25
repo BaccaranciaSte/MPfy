@@ -41,7 +41,7 @@ export function sharedCard(x) {
   return h(
     'div',
     { class: `card card-shared${round ? ' round' : ''}`, dataset: { message: x.messageId } },
-    h('div', { class: 'card-cover' }, coverEl(cardCover(x.card, at)), from),
+    h('div', { class: 'card-cover' }, coverEl(cardCover(x.card, at), { size: 'large' }), from),
     h('div', { class: 'card-title' }, sharedUnseen(x) ? h('span', { class: 'unseen-dot', role: 'img', 'aria-label': 'nuovo' }) : null, x.card.title),
     sub ? h('div', { class: 'card-sub' }, sub) : null,
     x.note ? h('div', { class: 'card-note' }, `\u00ab${x.note}\u00bb`) : null,

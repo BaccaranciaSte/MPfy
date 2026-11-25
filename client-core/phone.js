@@ -1307,9 +1307,10 @@ export class PhoneSource {
 
   async _cover (conn, req, coverId, query) {
     const size = query.has('size') ? query.get('size') : null
-    if (size !== null && !COVER_SIZES.includes(size)) return this._error(conn, 400, 'Dimensione non valida')
+    if (size !== null && size !== 'xl' && !COVER_SIZES.includes(size)) return this._error(conn, 400, 'Dimensione non valida')
     if (!ID_RE.test(coverId)) return this._error(conn, 404, 'Copertina non trovata')
-    const s = size || 'large'
+    // xl (the sources' 1280 px, for Now Playing): the phone keeps 160 and 640 px, so the large one.
+    const s = size === null || size === 'xl' ? 'large' : size
     const files = [[path.join(this.dir, 'art', coverId + '.' + s + '.jpg'), coverId + '.' + s]]
     if (this.artDir !== null) files.push([path.join(this.artDir, coverId + '.' + s + '.jpg'), coverId + '.' + s])
     files.push([path.join(this.dir, 'person-covers', coverId + '.jpg'), coverId])

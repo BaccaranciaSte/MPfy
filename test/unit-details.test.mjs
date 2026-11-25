@@ -487,6 +487,11 @@ test('details: a track missing only its year (or disc, track, album artist) send
   const third = makeMp3({ frames: 220, title: 'Terzo', artist: 'Artista', album: 'Album' })
   const albumId = albumIdOf({ albumArtist: 'Artista', album: 'Album' })
   assert.equal((await owner.call('PUT', '/api/cover-for/album/' + albumId + '?size=large', { body: fakePng(5) })).status, 200)
+  // A custom cover has no xl: asked so (Now Playing), it comes as it is, for good.
+  const own = app.library.customCovers.album.get(albumId).large
+  const xl = await owner.call('GET', '/api/cover/' + own + '?size=xl')
+  assert.deepEqual([xl.status, xl.headers.etag, xl.body.equals(fakePng(5))], [200, '"' + own + '"', true])
+  assert.match(xl.headers['cache-control'], /immutable/)
   const t3 = await upload('c.mp3', third)
   await app.details.idle()
   assert.equal(app.library.getTrack(t3.id).lookup, undefined)

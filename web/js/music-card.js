@@ -175,7 +175,8 @@ export function cardOfPlaylist(pl) {
       break;
     }
   }
-  const cover = own ? own.small : first ? d.trackCover.get(first.id).small : null;
+  // The large image, as the source names a shared playlist's cover: Home's cards draw it at 136 px.
+  const cover = own ? own.id : first ? d.trackCover.get(first.id).id : null;
   const card = { kind: 'playlist', id: pl.id, title: cardLine(pl.name), sub: '', n: (pl.trackIds || []).length, sources: store.playlistSources(pl.id) };
   if (cover) card.cover = cover;
   return card;

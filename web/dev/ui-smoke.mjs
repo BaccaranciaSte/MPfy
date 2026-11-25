@@ -510,7 +510,7 @@ async function swCheck() {
   // As many as sw.js lists (check.mjs keeps that list equal to the files on disk).
   const listed = /const SHELL_FILES = \[([\s\S]*?)\];/.exec(fs.readFileSync(path.join(HERE, '..', 'sw.js'), 'utf8'))[1].match(/'[^']+'/g).length;
   check(sw.controlled && sw.files === listed && sw.keys.includes('mpfy-meta-v1'), `worker controls the page, shell cache holds ${sw.files} files of the ${listed} listed (${sw.keys.join(', ')})`);
-  check(sw.covers > 0 && /^\/__mpfy\/cover\/[0-9a-f]{24}\?size=(small|large)$/.test(sw.sample), `covers cached by id: ${sw.covers} entries, e.g. ${sw.sample}`);
+  check(sw.covers > 0 && /^\/__mpfy\/cover\/[0-9a-f]{24}\?size=(small|large|xl)$/.test(sw.sample), `covers cached by id: ${sw.covers} entries, e.g. ${sw.sample}`);
   // A cover seen once comes from the cache even when every source is offline.
   await fetch(`${base}/__mock/offline?on=1`);
   const off = await evaluate(`

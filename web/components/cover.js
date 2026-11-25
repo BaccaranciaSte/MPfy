@@ -3,7 +3,10 @@
 //
 // Covers follow their priority (custom track cover, else custom album cover, else the embedded one;
 // playlists: custom cover, else the mosaic), resolved by the store. Lists load ?size=small;
-// the cards of the grids, headers and Now Playing ?size=large: coverEl(spec, { size }).
+// the cards of the grids and headers ?size=large; Now Playing ?size=xl (1280 px: on a phone it is
+// about 1100 px wide), with the large one when a source does not know xl: coverEl(spec, { size }).
+// A mosaic's four pieces follow the holder too (a 232 px header is four 116 px pieces, more
+// than the small 160 px image on a phone), unless the holder says otherwise with tiles.
 
 import { h } from '../js/dom.js';
 import { icon } from '../icons/icons.js';
@@ -14,8 +17,9 @@ import { sources } from '../js/sources.js';
 const img1 = (c) => ({ kind: 'img', id: c.id, small: c.small });
 
 /**
- * Cover descriptions: { kind: 'img', id, small, via? } | { kind: 'mosaic', ids } | { kind: 'liked' } |
- * { kind: 'ph', icon } (via: the sources that hold a cover your libraries do not know).
+ * Cover descriptions: { kind: 'img', id, small, via? } | { kind: 'mosaic', ids, large } |
+ * { kind: 'liked' } | { kind: 'ph', icon } (via: the sources that hold a cover your libraries do not
+ * know; a mosaic's ids are the small images, large the same four as large ones).
  */
 export const specs = {
   track(t) {
@@ -31,24 +35,36 @@ export const specs = {
     const own = pl && d.playlistCover.get(pl.id);
     if (own) return img1(own);
     const seen = new Set();
-    const ids = [];
+    const found = [];
     for (const tid of pl?.trackIds || []) {
       const c = d.trackCover.get(tid);
       if (!c) continue;
       const al = d.albumOf.get(tid);
       if (seen.has(al)) continue;
       seen.add(al);
-      ids.push(c.small);
-      if (ids.length === 4) break;
+      found.push(c);
+      if (found.length === 4) break;
     }
-    if (ids.length === 4) return { kind: 'mosaic', ids };
-    if (ids.length) return { kind: 'img', id: ids[0], small: ids[0] };
+    if (found.length === 4) return { kind: 'mosaic', ids: found.map((c) => c.small), large: found.map((c) => c.id) };
+    if (found.length) return img1(found[0]);
     return { kind: 'ph', icon: 'note' };
   },
 };
 
 /** The cover id that represents a spec, for the dominant color (always the small one). */
 export const specCoverId = (spec) => (spec?.kind === 'img' ? spec.small : spec?.kind === 'mosaic' ? spec.ids[0] : null);
+
+/**
+ * The images a spec is drawn from in a holder of that size: [{ id, size }], one or four (none
+ * for the heart and the placeholder). tiles: the size of a mosaic's pieces (default: the holder's).
+ */
+export function coverImages(spec, size, tiles = size) {
+  if (spec?.kind === 'img') return [{ id: size === 'small' ? spec.small : spec.id, size }];
+  if (spec?.kind !== 'mosaic') return [];
+  // A mosaic drawn before its large ids existed (an older page's data-spec): the small ones.
+  const big = tiles !== 'small' && Array.isArray(spec.large) && spec.large.length === spec.ids.length;
+  return (big ? spec.large : spec.ids).map((id) => ({ id, size: big ? 'large' : 'small' }));
+}
 
 function img(coverId, size, holder, via = null) {
   const src = coverHref(coverId, size, { via });
@@ -57,8 +73,15 @@ function img(coverId, size, holder, via = null) {
     el.replaceWith(h('span', { class: 'cover-ph-inner' }, icon('note', 24)));
     holder.classList.add('cover-broken');
   };
+  // xl from a source older than it (400), or not in the cache while offline: the large one first.
+  const large = size === 'xl' ? coverHref(coverId, 'large', { via }) : null;
   if (!src) queueMicrotask(broken);
-  else el.addEventListener('error', broken);
+  else {
+    el.addEventListener('error', () => {
+      if (large && el.getAttribute('src') !== large) el.setAttribute('src', large);
+      else broken();
+    });
+  }
   return el;
 }
 
@@ -69,10 +92,9 @@ export function setCover(el, spec, size = el.dataset.size || 'small') {
   el.dataset.size = size;
   el.replaceChildren();
   el.classList.remove('cover-liked', 'cover-mosaic', 'cover-ph', 'cover-broken');
-  if (spec?.kind === 'img') el.append(img(size === 'large' ? spec.id : spec.small, size, el, spec.via || null));
-  else if (spec?.kind === 'mosaic') {
-    el.classList.add('cover-mosaic');
-    for (const id of spec.ids) el.append(img(id, 'small', el));
+  if (spec?.kind === 'img' || spec?.kind === 'mosaic') {
+    if (spec.kind === 'mosaic') el.classList.add('cover-mosaic');
+    for (const p of coverImages(spec, size, el.dataset.tiles || size)) el.append(img(p.id, p.size, el, spec.via || null));
   } else if (spec?.kind === 'liked') {
     el.classList.add('cover-liked');
     el.append(h('span', { class: 'cover-ph-inner' }, icon('heartFill', 24)));
@@ -82,8 +104,9 @@ export function setCover(el, spec, size = el.dataset.size || 'small') {
   }
 }
 
-export function coverEl(spec, { cls = '', round = false, size = 'small' } = {}) {
-  const el = h('div', { class: `cover${round ? ' round' : ''}${cls ? ' ' + cls : ''}`, 'aria-hidden': 'true', dataset: { size } });
+/** tiles: the size of a mosaic's pieces when it is not the holder's (a large but tiny holder: 'small'). */
+export function coverEl(spec, { cls = '', round = false, size = 'small', tiles = null } = {}) {
+  const el = h('div', { class: `cover${round ? ' round' : ''}${cls ? ' ' + cls : ''}`, 'aria-hidden': 'true', dataset: tiles ? { size, tiles } : { size } });
   setCover(el, spec, size);
   return el;
 }

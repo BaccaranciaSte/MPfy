@@ -1357,8 +1357,9 @@ function serveCover(srv, req, res, coverId, url) {
   if (!c || !serverHasCover(srv, coverId)) throw new HttpError(404, 'Copertina non trovata');
   const size = url.searchParams.get('size');
   let buf = c.buf;
-  if (c.gen && (size === 'small' || size === 'large')) {
-    c.sized[size] ||= makeCover(c.gen.c1, c.gen.c2, c.gen.seed, size === 'small' ? 160 : 640);
+  if (size !== null && size !== 'small' && size !== 'large' && size !== 'xl') throw new HttpError(400, 'Dimensione non valida');
+  if (c.gen && size) {
+    c.sized[size] ||= makeCover(c.gen.c1, c.gen.c2, c.gen.seed, { small: 160, large: 640, xl: 1280 }[size]);
     buf = c.sized[size];
   }
   const tag = `"${coverId}-${size || 'orig'}"`;
