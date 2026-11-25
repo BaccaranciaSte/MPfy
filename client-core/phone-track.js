@@ -166,6 +166,8 @@ export function storedFromFacts (F, fh, prev = null) {
   const stored = withFills({ ...t, fileHash: t.id, name: F.name, edited: [] }, filled)
   stored.filled = filled
   stored.lookup = prev !== null ? prev.lookup : null
+  // What the network said of its genres (phone-lookups.js): kept while the file is the same one.
+  stored.genreLookup = prev !== null && prev.genreLookup ? prev.genreLookup : null
   const own = lyricsOfFacts(F)
   const was = prev !== null ? prev.lyr : null
   let text = null
@@ -216,7 +218,9 @@ export function servedText (stored) {
   const out = {}
   for (const k of PUBLIC_FIELDS) out[k] = stored[k] === undefined ? null : stored[k]
   let s = JSON.stringify(out).slice(0, -1)
+  const gl = stored.genreLookup
   if (Array.isArray(stored.genres) && stored.genres.length > 0) s += ',"genres":' + JSON.stringify(stored.genres)
+  else if (gl && gl.fileHash === stored.fileHash && Array.isArray(gl.genres) && gl.genres.length > 0) s += ',"genres":' + JSON.stringify(gl.genres)
   if (stored.sort) s += ',"sort":' + JSON.stringify(stored.sort)
   if (stored.loud) s += ',"loud":' + JSON.stringify(stored.loud)
   s += ',"qualities":' + NO_QUALITIES

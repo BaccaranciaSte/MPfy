@@ -49,14 +49,16 @@ object NetRules {
     "musicbrainz" to ("musicbrainz.org" to "/ws/2/"),
     "caa" to ("coverartarchive.org" to "/"),
     "lrclib" to ("lrclib.net" to "/api/"),
+    // An artist's genres when MusicBrainz has none (client-core/phone-lookups.js).
+    "wikidata" to ("www.wikidata.org" to "/w/api.php"),
   )
 
   // The source's caps (server/details.mjs, server/lyrics.mjs).
-  private val CAP = mapOf("musicbrainz" to (4L shl 20), "caa" to CoverArt.MAX_COVER_BYTES.toLong(), "lrclib" to (1L shl 20))
+  private val CAP = mapOf("musicbrainz" to (4L shl 20), "caa" to CoverArt.MAX_COVER_BYTES.toLong(), "lrclib" to (1L shl 20), "wikidata" to (4L shl 20))
 
   /** Between two requests to MusicBrainz, and between two to the Cover Art Archive: every phone at home shares one address. */
   const val GAP_MS = 3_000L
-  private val PACED = setOf("musicbrainz", "caa")
+  private val PACED = setOf("musicbrainz", "caa", "wikidata")
 
   const val MAX_REDIRECTS = 5
 

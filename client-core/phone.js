@@ -66,7 +66,7 @@ import { writeFileAtomic } from './state.js'
 import { etagMatches } from './http.js'
 import { randomBytes } from './identity.js'
 import { cleanFacts, factsHash, storedFromFacts, servedText, codeOf, shownLyrics, withDetails, sha256Hex, ID_RE } from './phone-track.js'
-import { PhoneLookups, detailsDueAt, lyricsDueAt, coverOf } from './phone-lookups.js'
+import { PhoneLookups, detailsDueAt, lyricsDueAt, coverOf, GENRES_V } from './phone-lookups.js'
 import { missingFields, keyOf } from './phone-rules.js'
 
 export const PHONE_ID = '0000'
@@ -390,7 +390,8 @@ export class PhoneSource {
       fh: stored.fh,
       code,
       shown: shownLyrics(stored),
-      dd: detailsDueAt(stored),
+      // The genres lookup is the instance's option (off in tests that count requests).
+      dd: this._lookupOpts && this._lookupOpts.genres === false ? detailsDueAt(stored, { genres: false }) : detailsDueAt(stored),
       ld: lyricsDueAt(stored),
       cover: stored.filled && typeof stored.filled.cover === 'string' ? stored.filled.cover : null,
       len: 0,
@@ -1040,6 +1041,19 @@ export class PhoneSource {
       const { next, found } = withDetails(t, { state: result.state, recording: result.recording || null, release: result.release || null, values: result.values || null, coverId: result.coverId || null, tries, at }, missing)
       this._update(rec, next)
       if (result.coverId && !found.includes('cover')) this.dropCover(result.coverId)
+    })
+  }
+
+  /** A genres lookup is over (server/details.mjs _runGenres): a failed try keeps what the last answer gave. */
+  applyGenres (id, { fileHash, state, genres, tries, at }) {
+    return this._enqueue(() => {
+      this._ensureLoaded()
+      const rec = this._tracks.get(id)
+      const t = rec === undefined ? null : JSON.parse(rec.stored)
+      if (t === null || t.fileHash !== fileHash) return
+      const last = t.genreLookup && t.genreLookup.fileHash === fileHash && Array.isArray(t.genreLookup.genres) ? t.genreLookup.genres : []
+      const genreLookup = { v: 1, gv: GENRES_V, state, at, tries, fileHash, genres: state === 'failed' && last.length > 0 ? last : genres }
+      this._update(rec, { ...t, genreLookup })
     })
   }
 

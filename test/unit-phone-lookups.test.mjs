@@ -17,7 +17,8 @@ const read = (rel) => JSON.parse(fs.readFileSync(new URL(rel, import.meta.url), 
 const AIZO = read('./fixtures/details/mb-recording-aizo.json')
 const LINES = ['Lascio il molo al buio', 'Il vento sa il mio nome']
 const PROFILE = 'cd'.repeat(16)
-const FAST = { fillDelayMs: 10, pace: { musicbrainz: 5, caa: 5 }, lyricsPaceMs: 5, offlinePause: [150, 300], backoff: [40, 80], lyricsBackoff: [40, 80] }
+// The genres lookup off: the tests from before it count requests it would add (one has its own test).
+const FAST = { fillDelayMs: 10, pace: { musicbrainz: 5, caa: 5 }, lyricsPaceMs: 5, offlinePause: [150, 300], backoff: [40, 80], lyricsBackoff: [40, 80], genres: false }
 const idOf = (n) => n.toString(16).padStart(24, '0')
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -344,4 +345,25 @@ test('a start with nothing due reads only the end of the log and asks nothing; w
   const fourth = open(t, services(), { dir: third.dir })
   assert.equal(fourth.phone.loaded, false)
   await waitFor(() => fourth.phone.loaded && stored(fourth.phone, 3).lookup !== null, { what: 'the fill after the delay' })
+})
+
+test('a song whose tags have no genre: the artist by its name, the song inside it, else the artist\'s genres, Wikidata\'s for one with none on MusicBrainz; served like a source\'s', async (t) => {
+  const o = open(t, (m) => {
+    const u = decodeURIComponent(m.url)
+    if (m.service === 'musicbrainz' && u.includes('/ws/2/recording?query=')) return { status: 200, json: JSON.stringify({ recordings: [] }) }
+    if (m.service === 'musicbrainz' && u.includes('/ws/2/artist?query=')) return { status: 200, json: JSON.stringify({ artists: [{ id: 'a5', name: 'natori', score: 100 }] }) }
+    if (m.service === 'musicbrainz' && u.includes('/ws/2/artist/a5')) return { status: 200, json: JSON.stringify({ id: 'a5', genres: [], relations: [{ type: 'wikidata', url: { resource: 'https://www.wikidata.org/wiki/Q555' } }] }) }
+    if (m.service === 'wikidata' && u.includes('props=claims')) return { status: 200, json: JSON.stringify({ entities: { Q555: { claims: { P136: [{ mainsnak: { datavalue: { value: { id: 'Q1' } } } }] } } } }) }
+    if (m.service === 'wikidata' && u.includes('props=labels')) return { status: 200, json: JSON.stringify({ entities: { Q1: { labels: { en: { value: 'J-pop' } } } } }) }
+    return { status: 404 }
+  }, { lookups: { ...FAST, genres: true, pace: { musicbrainz: 5, caa: 5, wikidata: 5 } } })
+  await put(o.phone, [facts(1, { tags: { title: 'Pupa', artist: 'natori', album: 'Disco', albumArtist: 'natori', trackNo: 1, discNo: 1, year: 2024 }, coverId: 'c'.repeat(24) })])
+  await waitFor(() => stored(o.phone, 1).genreLookup !== null, { what: 'the genres' })
+  assert.deepEqual(stored(o.phone, 1).genreLookup.genres, ['J-pop'])
+  assert.equal(stored(o.phone, 1).lookup, null, 'a complete song: no details lookup, only its genres')
+  const served = (await ask(o.phone, '/api/library')).data.tracks.find((x) => x.id === idOf(1))
+  assert.deepEqual(served.genres, ['J-pop'])
+  const wd = o.nets().filter((m) => m.service === 'wikidata')
+  assert.equal(wd.length, 2)
+  assert.ok(wd.every((m) => m.url.startsWith('https://www.wikidata.org/w/api.php?') && !/Pupa|natori|Disco/.test(decodeURIComponent(m.url))), 'Wikidata gets the item only')
 })

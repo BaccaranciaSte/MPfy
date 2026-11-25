@@ -30,11 +30,52 @@ import b4a from 'b4a'
 import { parseLrc, parsePlain } from './lrc.js'
 import {
   hintsOf, searchQuery, chooseFromSearch, chooseRelease, releaseFits, valuesOf, positionsOf, missingFields, wantsLookup,
-  keyOf, askable, queryOf, retryAfterMs, Pacer, UNKNOWN_ALBUM,
+  keyOf, askable, queryOf, retryAfterMs, Pacer, UNKNOWN_ALBUM, UNKNOWN_ARTIST, norm,
   MB_URL, CAA_URL, LRCLIB_URL, PHONE_PACE, DETAILS_BACKOFF, THROTTLED_FAIL, FILL_DELAY_MS, DETAILS_RETRY_BASE_MS,
   DETAILS_MAX_TRIES, OFFLINE_PAUSE, CAA_KEEP, RELEASE_PAGE, RELEASE_PAGES, LYRICS_PACE_MS, LYRICS_BACKOFF,
   LYRICS_RETRY_BASE_MS, LYRICS_MAX_TRIES, MISS_RETRY_MS
 } from './phone-rules.js'
+import { splitGenres } from '../web/js/genres.js'
+
+// The genres of a song whose tags have none, as the source asks them (server/details.mjs, GENRES_V):
+// the recording's, its album's and its artist's, the artist found by name, alias or sort name when
+// the recording is not, Wikidata's for an artist with none on MusicBrainz.
+export const GENRES_V = 6
+const WD_URL = 'https://www.wikidata.org'
+const MB_GENRES = 3
+const MAX_SONG_GENRES = 5
+
+function mbGenres (entity) {
+  const list = entity && Array.isArray(entity.genres) ? entity.genres : []
+  const voted = list
+    .filter((g) => g && typeof g.name === 'string' && !(typeof g.count === 'number' && g.count <= 0))
+    .sort((a, b) => (b.count || 0) - (a.count || 0) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+  return splitGenres(voted.slice(0, 2 * MB_GENRES).map((g) => g.name)).slice(0, MB_GENRES)
+}
+
+function firstArtist (name) {
+  const s = typeof name === 'string' ? name.split(/\s*(?:,|;|\/|&|\bfeat\.?|\bft\.?|\bwith\b)\s*/i)[0].trim() : ''
+  return s && s !== UNKNOWN_ARTIST ? s : null
+}
+
+function wikidataOf (artist) {
+  const rels = artist && Array.isArray(artist.relations) ? artist.relations : []
+  for (const r of rels) {
+    const url = r && r.type === 'wikidata' && r.url && typeof r.url.resource === 'string' ? r.url.resource : ''
+    const m = /\/wiki\/(Q\d+)$/.exec(url)
+    if (m) return m[1]
+  }
+  return null
+}
+
+/** When the genres lookup of this track is due: 0 now, a time, or Infinity. */
+export function genresDueAt (t) {
+  if (!Array.isArray(t.genres) || t.genres.length > 0) return Infinity
+  const g = t.genreLookup
+  if (!g || g.fileHash !== t.fileHash || (g.gv || 1) < GENRES_V) return 0
+  if (g.state !== 'failed' || g.tries >= DETAILS_MAX_TRIES) return Infinity
+  return g.at + DETAILS_RETRY_BASE_MS * 2 ** (g.tries - 1)
+}
 
 const REQUEST_TIMEOUT_MS = 30000
 const MAX_TIMER = 2 ** 31 - 1
@@ -51,7 +92,12 @@ class Paused extends Error {
 }
 
 /** When a details lookup of this track is due: 0 now, a time, or Infinity. */
-export function detailsDueAt (t) {
+/** When a details lookup of this track is due (its missing fields, or its genres): 0 now, a time, or Infinity. */
+export function detailsDueAt (t, { genres = true } = {}) {
+  return genres ? Math.min(mainDueAt(t), genresDueAt(t)) : mainDueAt(t)
+}
+
+function mainDueAt (t) {
   const l = t.lookup
   if (!l || l.fileHash !== t.fileHash) return wantsLookup(t) ? 0 : Infinity
   if (l.state !== 'failed' || l.tries >= DETAILS_MAX_TRIES) return Infinity
@@ -100,8 +146,13 @@ export class PhoneLookups {
    */
   constructor ({
     phone, send, log = () => {}, now = Date.now, fillDelayMs = FILL_DELAY_MS, pace = PHONE_PACE, lyricsPaceMs = LYRICS_PACE_MS,
-    backoff = DETAILS_BACKOFF, lyricsBackoff = LYRICS_BACKOFF, offlinePause = OFFLINE_PAUSE, timeoutMs = REQUEST_TIMEOUT_MS
+    backoff = DETAILS_BACKOFF, lyricsBackoff = LYRICS_BACKOFF, offlinePause = OFFLINE_PAUSE, timeoutMs = REQUEST_TIMEOUT_MS, genres = true
   }) {
+    this.genresOn = genres
+    this._gRg = new Map()
+    this._gArtist = new Map()
+    this._gByName = new Map()
+    this._wdLabels = new Map()
     this.phone = phone
     this.send = send
     this.log = log
@@ -112,7 +163,7 @@ export class PhoneLookups {
     this.offlinePause = offlinePause
     this.timeoutMs = timeoutMs
     const wait = (ms) => this._sleep(ms)
-    this.pacers = { musicbrainz: new Pacer(pace.musicbrainz, backoff, { now, wait }), caa: new Pacer(pace.caa, backoff, { now, wait }) }
+    this.pacers = { musicbrainz: new Pacer(pace.musicbrainz, backoff, { now, wait }), caa: new Pacer(pace.caa, backoff, { now, wait }), wikidata: new Pacer(pace.wikidata === undefined ? pace.musicbrainz : pace.wikidata, backoff, { now, wait }) }
     this.stats = { requests: 0, details: 0, lyrics: 0 }
     this._d = worker()
     this._y = worker()
@@ -347,7 +398,11 @@ export class PhoneLookups {
 
   async _details (id) {
     const t = this.phone.trackOf(id)
-    if (t === null || this.phone.isShadowed(id) || detailsDueAt(t) > this.now()) return
+    if (t === null || this.phone.isShadowed(id) || detailsDueAt(t, { genres: this.genresOn }) > this.now()) return
+    if (mainDueAt(t) > this.now()) {
+      if (this.genresOn) await this._runGenres(id, t)
+      return
+    }
     this.stats.details++
     const previous = t.lookup && t.lookup.fileHash === t.fileHash ? t.lookup : null
     const tries = previous !== null && previous.state === 'failed' ? previous.tries + 1 : 1
@@ -411,6 +466,129 @@ export class PhoneLookups {
       }
     }
     return { state: 'applied', ...done, coverId }
+  }
+
+  // ------------------------------------------------------------------ genres
+
+  async _runGenres (id, t) {
+    const prev = t.genreLookup && t.genreLookup.fileHash === t.fileHash ? t.genreLookup : null
+    const tries = prev !== null && prev.state === 'failed' ? prev.tries + 1 : 1
+    const ctx = { throttled: 0, answered: false, recording: null }
+    let state = 'done'
+    let genres = []
+    try {
+      genres = await this._lookupGenres(t, ctx)
+    } catch (err) {
+      if (err instanceof Stopped || !this.ready) return
+      if (err instanceof Paused) return this._pause(this._d, id, err.why)
+      if (!(err instanceof LookupFailed)) this.log('genres of ' + id + ': ' + ((err && err.message) || err))
+      state = 'failed'
+      genres = []
+    }
+    this._d.offlineLevel = 0
+    if (!this.ready) return
+    await this.phone.applyGenres(id, { fileHash: t.fileHash, state, genres, tries, at: this.now() })
+  }
+
+  async _lookupGenres (t, ctx) {
+    const l = t.lookup
+    let recordingId = l && l.fileHash === t.fileHash && typeof l.recording === 'string' ? l.recording : null
+    if (recordingId === null) {
+      const hints = hintsOf(t)
+      const ms = typeof t.duration === 'number' ? Math.round(t.duration * 1000) : null
+      if (!hints.usable || ms === null) return this._genresByArtistName(t, ctx)
+      const answer = await this._mb('/ws/2/recording?query=' + encodeURIComponent(searchQuery(hints, ms)) + '&fmt=json&limit=10', ctx)
+      const found = answer === null ? null : chooseFromSearch(answer, hints, ms)
+      if (found === null) return this._genresByArtistName(t, ctx)
+      recordingId = found.id
+    }
+    return this._genresOfRecording(recordingId, t, ctx)
+  }
+
+  async _genresOfRecording (recordingId, t, ctx) {
+    const albumHint = t.album && t.album !== UNKNOWN_ALBUM ? t.album : null
+    const recording = await this._mb('/ws/2/recording/' + encodeURIComponent(recordingId) + '?inc=genres+releases+release-groups+artist-credits&fmt=json', ctx)
+    if (recording === null) return []
+    const releases = Array.isArray(recording.releases) ? recording.releases : []
+    let release = chooseRelease(releases, albumHint)
+    if (!releaseFits(release, albumHint, releases)) release = null
+    const lists = [mbGenres(recording)]
+    const rg = release && release['release-group'] && typeof release['release-group'].id === 'string' ? release['release-group'].id : null
+    if (rg !== null) {
+      if (!this._gRg.has(rg)) {
+        const a = await this._mb('/ws/2/release-group/' + encodeURIComponent(rg) + '?inc=genres&fmt=json', ctx)
+        this._gRg.set(rg, a === null ? [] : mbGenres(a))
+      }
+      lists.push(this._gRg.get(rg))
+    }
+    const credits = Array.isArray(recording['artist-credit']) ? recording['artist-credit'] : []
+    const artist = credits[0] && credits[0].artist && typeof credits[0].artist.id === 'string' ? credits[0].artist.id : null
+    if (artist !== null) lists.push(await this._artistGenresOf(artist, ctx))
+    return splitGenres(lists.flat()).slice(0, MAX_SONG_GENRES)
+  }
+
+  async _genresByArtistName (t, ctx) {
+    const name = firstArtist(t.artist)
+    if (name === null) return []
+    const key = norm(name)
+    let ids = this._gByName.get(key)
+    if (ids === undefined) {
+      const n = '"' + name.replace(/[\\"]/g, (c) => '\\' + c) + '"'
+      const answer = await this._mb('/ws/2/artist?query=' + encodeURIComponent('artist:' + n + ' OR alias:' + n + ' OR sortname:' + n) + '&fmt=json&limit=5', ctx)
+      const list = answer && Array.isArray(answer.artists) ? answer.artists : []
+      const same = (x) => typeof x === 'string' && norm(x) === key
+      const hits = list.filter((a) => a && typeof a.id === 'string' && !(typeof a.score === 'number' && a.score < 95) && (same(a.name) || same(a['sort-name']) || (Array.isArray(a.aliases) && a.aliases.some((x) => x && same(x.name)))))
+      ids = [...new Set(hits.map((a) => a.id))].slice(0, 3)
+      this._gByName.set(key, ids)
+    }
+    if (ids.length === 0) return []
+    const hints = hintsOf(t)
+    const ms = typeof t.duration === 'number' ? Math.round(t.duration * 1000) : null
+    if (hints.usable && ms !== null) {
+      for (const id of ids) {
+        const q = searchQuery({ title: hints.title, artist: null }, ms) + ' AND arid:' + id
+        const answer = await this._mb('/ws/2/recording?query=' + encodeURIComponent(q) + '&fmt=json&limit=10', ctx)
+        const found = answer === null ? null : chooseFromSearch(answer, { ...hints, artist: null }, ms)
+        if (found !== null) return this._genresOfRecording(found.id, t, ctx)
+      }
+    }
+    return ids.length === 1 ? this._artistGenresOf(ids[0], ctx) : []
+  }
+
+  async _artistGenresOf (id, ctx) {
+    if (this._gArtist.has(id)) return this._gArtist.get(id)
+    const answer = await this._mb('/ws/2/artist/' + encodeURIComponent(id) + '?inc=genres+url-rels&fmt=json', ctx)
+    let g = answer === null ? [] : mbGenres(answer)
+    const qid = g.length === 0 ? wikidataOf(answer) : null
+    if (qid !== null) g = await this._wikidataGenres(qid, ctx)
+    this._gArtist.set(id, g)
+    return g
+  }
+
+  async _wikidataGenres (qid, ctx) {
+    const item = await this._wd('/w/api.php?action=wbgetentities&ids=' + qid + '&props=claims&format=json', ctx)
+    const claims = item && item.entities && item.entities[qid] && item.entities[qid].claims
+    const ids = (claims && Array.isArray(claims.P136) ? claims.P136 : [])
+      .map((c) => c && c.mainsnak && c.mainsnak.datavalue && c.mainsnak.datavalue.value && c.mainsnak.datavalue.value.id)
+      .filter((x) => typeof x === 'string' && /^Q\d+$/.test(x))
+      .slice(0, 2 * MB_GENRES)
+    if (ids.length === 0) return []
+    const missing = ids.filter((q) => !this._wdLabels.has(q))
+    if (missing.length > 0) {
+      const labels = await this._wd('/w/api.php?action=wbgetentities&ids=' + encodeURIComponent(missing.join('|')) + '&props=labels&languages=en&format=json', ctx)
+      for (const q of missing) {
+        const l = labels && labels.entities && labels.entities[q] && labels.entities[q].labels && labels.entities[q].labels.en
+        this._wdLabels.set(q, l && typeof l.value === 'string' ? l.value : null)
+      }
+    }
+    return splitGenres(ids.map((q) => this._wdLabels.get(q)).filter(Boolean)).slice(0, MB_GENRES)
+  }
+
+  async _wd (pathAndQuery, ctx) {
+    const reply = await this._call('wikidata', WD_URL + pathAndQuery, 'json', ctx)
+    if (reply.status === 404) return null
+    if (reply.status !== 200) throw new LookupFailed('Wikidata answered ' + reply.status)
+    return jsonOf(reply)
   }
 
   async _mb (pathAndQuery, ctx) {
